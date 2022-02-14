@@ -6,7 +6,7 @@ classdef powerSupply < hwDevice
         Type string = "Power Supply"
     end
 
-    properties (Abstract, Constant)
+    properties (Abstract,Constant)
         NumOutputs double
         VMin double
         VMax double
@@ -14,7 +14,7 @@ classdef powerSupply < hwDevice
         IMax double
     end
 
-    properties (Abstract, SetAccess = protected)
+    properties (Abstract,SetAccess = protected)
         VSet double
         ISet double
         OutputState logical
@@ -29,15 +29,15 @@ classdef powerSupply < hwDevice
     end
 
     methods (Abstract)
-        setVSet(obj, volt, output)
-        volt = getVSet(obj, output)
-        volt = measV(obj, output)
-        setISet(obj, curr, output)
-        curr = getISet(obj, output)
-        curr = measI(obj, output)
-        setOutputState(obj, state, output)
-        out = getOutputState(obj, output)
-        pow = measP(obj, output)
+        setVSet(obj,volt,output)
+        volt = getVSet(obj,output)
+        volt = measV(obj,output)
+        setISet(obj,curr,output)
+        curr = getISet(obj,output)
+        curr = measI(obj,output)
+        setOutputState(obj,state,output)
+        out = getOutputState(obj,output)
+        pow = measP(obj,output)
     end
 end
 
