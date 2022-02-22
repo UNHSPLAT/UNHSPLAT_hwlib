@@ -2,7 +2,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     %GPIBDEVICE Abstract class for communicating with various GPIB-connected devices
     %   Detailed explanation goes here
 
-    properties (Abstract,Constant)
+    properties (Abstract, Constant)
         Type string % Device type (i.e. Power Supply, Temperature Controller, etc.)
         ModelNum string % Device model number
     end
@@ -17,7 +17,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     end
 
     properties
-        Tag string = "" % User-configurable label for device
+        Tag string % User-configurable label for device
     end
 
     methods

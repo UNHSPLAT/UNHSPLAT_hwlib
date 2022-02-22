@@ -6,7 +6,7 @@ classdef powerSupply < hwDevice
         Type string = "Power Supply"
     end
 
-    properties (Abstract,Constant)
+    properties (Abstract, Constant)
         NumOutputs double
         VMin double
         VMax double
@@ -14,7 +14,7 @@ classdef powerSupply < hwDevice
         IMax double
     end
 
-    properties (Abstract,SetAccess = protected)
+    properties (Abstract, SetAccess = protected)
         VSet double
         ISet double
         OutputState logical
