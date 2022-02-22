@@ -17,7 +17,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     end
 
     properties
-        Tag string % User-configurable label for device
+        Tag string = "" % User-configurable label for device
     end
 
     methods
