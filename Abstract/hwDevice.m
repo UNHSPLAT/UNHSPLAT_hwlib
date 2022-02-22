@@ -16,6 +16,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         hVisa % Handle to MATLAB visa object
     end
 
+    properties
+        Tag string = "" % User-configurable label for device
+    end
+
     methods
         function obj = hwDevice(address)
             %GPIBDEVICE Construct an instance of this class
