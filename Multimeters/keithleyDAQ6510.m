@@ -20,6 +20,14 @@ classdef keithleyDAQ6510 < multimeter
             dataOut = obj.devRW("measure?");
             val = str2double(strtrim(dataOut));
         end
+
+        function dataOut = initThenRead(obj)
+
+            obj.devRW('INIT');
+            obj.devRW('*WAI');
+            dataOut = obj.devRW('READ?');
+
+        end
     end
 end
 
