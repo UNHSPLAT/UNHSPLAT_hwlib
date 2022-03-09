@@ -17,8 +17,28 @@ classdef keithley6485 < hwDevice
 
         function dataOut = read(obj)
 
-            dataOut = obj.devRW("FETC?");
+            dataOut = obj.devRW('READ?');
 
         end
+
+        function dataOut = devRW(obj)
+
+            dataOut = devRW@hwDevice(obj);
+
+            if strcmp(obj.hVisa.Status,'open')
+                deviceAlreadyOpen = true;
+            else
+                deviceAlreadyOpen = false;
+            end
+
+            fprintf(obj.hVisa,':SYST:LOC');
+
+            if ~deviceAlreadyOpen
+                fclose(obj.hVisa);
+            end
+
+        end
+
+
     end
 end
