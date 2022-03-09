@@ -18,7 +18,8 @@ classdef keithley6485 < hwDevice
         function dataOut = read(obj)
 
             dataOut = obj.devRW('READ?');
-
+            dataOut = str2double(strtrim(dataOut));
+            
         end
 
         function dataOut = devRW(obj)
