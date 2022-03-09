@@ -24,7 +24,11 @@ classdef keithley6485 < hwDevice
 
         function dataOut = devRW(obj,dataIn)
 
-            dataOut = devRW@hwDevice(obj,dataIn);
+            if nargout > 0
+                dataOut = devRW@hwDevice(obj,dataIn);
+            else
+                devRW@hwDevice(obj,dataIn);
+            end
 
             if strcmp(obj.hVisa.Status,'open')
                 deviceAlreadyOpen = true;
