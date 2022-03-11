@@ -25,7 +25,17 @@ classdef keithleyDAQ6510 < multimeter
 
             obj.devRW('INIT');
             obj.devRW('*WAI');
-            dataOut = obj.devRW('READ?');
+            dataOut = obj.devRW(':READ?');
+
+        end
+
+        function dataOut = performScan(obj,startIndex,endIndex)
+
+            obj.devRW('INIT');
+            obj.devRW('*WAI');
+            dataOut = obj.devRW([':TRAC:DATA? ',num2str(startIndex),', ',num2str(endIndex)]);
+            tokes = regexp(strtrim(dataOut),',','split');
+            dataOut = str2double(tokes);
 
         end
     end
