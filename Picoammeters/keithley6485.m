@@ -30,6 +30,8 @@ classdef keithley6485 < hwDevice
                 devRW@hwDevice(obj,dataIn);
             end
 
+            pause(0.3); % For testing comm errors
+
             if strcmp(obj.hVisa.Status,'open')
                 deviceAlreadyOpen = true;
             else
