@@ -16,6 +16,12 @@ for iD = 1:size(devlist,1)
         case "E36313A"
             iFoundHW = iFoundHW+1;
             hardware(iFoundHW) = keysightE36313A(devlist{iD,1});
+        case "PS350"
+            iFoundHW = iFoundHW+1;
+            hardware(iFoundHW) = srsPS350(devlist{iD,1});
+        case "6485"
+            iFoundHW = iFoundHW+1;
+            hardware(iFoundHW) = keithley6485(devlist{iD,1});
     end
 end
 

@@ -61,6 +61,15 @@ classdef srsHVPS < powerSupply
 
         end
 
+        function pow = measP(obj)
+
+            volt = obj.measV;
+            curr = obj.measI;
+
+            pow = volt.*curr;
+        
+        end
+
         function setOutputState(obj,state)
 
             if state
