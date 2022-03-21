@@ -17,7 +17,7 @@ classdef srsHVPS < powerSupply
 
         function setVSet(obj,volt)
 
-            obj.devRW(['VSET',num2str()]);
+            obj.devRW(['VSET',num2str(volt)]);
             obj.VSet = volt;
 
         end
@@ -40,7 +40,7 @@ classdef srsHVPS < powerSupply
 
         function setISet(obj,curr)
 
-            obj.devRW(['ILIM',num2str()]);
+            obj.devRW(['ILIM',num2str(curr)]);
             obj.ISet = curr;
 
         end
