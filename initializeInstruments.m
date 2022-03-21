@@ -19,7 +19,7 @@ for iD = 1:size(devlist,1)
         case "PS350"
             iFoundHW = iFoundHW+1;
             hardware(iFoundHW) = srsPS350(devlist{iD,1});
-        case "6485"
+        case "MODEL 6485"
             iFoundHW = iFoundHW+1;
             hardware(iFoundHW) = keithley6485(devlist{iD,1});
     end
