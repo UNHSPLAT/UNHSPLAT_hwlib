@@ -18,13 +18,25 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties
         Tag string = "" % User-configurable label for device
+        Connected = false %connection status of hwDevice
+        resourcelist = table([],[],[],[],[],[],...
+                        'VariableNames',["ResourceName","Alias","Vendor","Model","SerialNumber","Type"])%
     end
 
     methods
-        function obj = hwDevice(address)
+        function obj = hwDevice(address,varargin)
             %GPIBDEVICE Construct an instance of this class
             %   Detailed explanation goes here
             obj.connectDevice(address);
+
+            %assign all properties provided
+            if (nargin > 0)
+                props = varargin(1:2:numel(varargin));
+                vals = varargin(2:2:numel(varargin));
+                for i=1:numel(props)
+                    obj.(props{i})=vals{i};
+                end
+            end
         end
 
         function connectDevice(obj,address)
@@ -59,11 +71,13 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
             % Initialize instrument object
             obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
-
+            if ~any(strcmp(obj.resourcelist.ResourceName,address))
+                obj.Connected = true
+            end
         end
 
         function dataOut = devRW(obj,dataIn)
-
+            %
               if strcmp(obj.hVisa.Status,'open')
                   deviceAlreadyOpen = true;
               else
