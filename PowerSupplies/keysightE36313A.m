@@ -22,8 +22,8 @@ classdef keysightE36313A < powerSupply
             %KEYSIGHTE36313A Construct an instance of this class
             %   Detailed explanation goes here
             obj@powerSupply(address);
-
-            obj.getAllSettings;
+            
+            %obj.getAllSettings;
         end
         
         function setVSet(obj,volt,output)

@@ -27,7 +27,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         function obj = hwDevice(address,varargin)
             %GPIBDEVICE Construct an instance of this class
             %   Detailed explanation goes here
-            obj.connectDevice(address);
 
             %assign all properties provided
             if (nargin > 0)
@@ -37,11 +36,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     obj.(props{i})=vals{i};
                 end
             end
-        end
 
-        function connectDevice(obj,address)
-            %METHOD1 Summary of this method goes here
-            %   Detailed explanation goes here
+            %format and store the address
             if isnumeric(address)
                 obj.Protocol = "gpib";
                 obj.Address = "GPIB0::"+num2str(address)+"::INSTR";
@@ -67,17 +63,24 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 end
             else
                 error("hwDevice:invalidAddress","Invalid address! Must be VISA-readable address format...");
-            end
+            end            
+        end
 
-            % Initialize instrument object
-            obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
-            if ~any(strcmp(obj.resourcelist.ResourceName,address))
-                obj.Connected = true
+        function connectDevice(obj,varargin)
+            %METHOD1 Summary of this method goes here
+            %   Detailed explanation goes here
+            if any(strcmp(obj.resourcelist.ResourceName,obj.Address))         
+                try
+                    % Initialize instrument object
+                    obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
+                    obj.Connected = true;
+                end
             end
         end
 
         function dataOut = devRW(obj,dataIn)
             %
+            if obj.Connected
               if strcmp(obj.hVisa.Status,'open')
                   deviceAlreadyOpen = true;
               else
@@ -101,7 +104,9 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
               if ~deviceAlreadyOpen
                   fclose(obj.hVisa);
               end
-
+            else
+                dataOut = "nan"
+            end
         end
 
         function delete(obj)

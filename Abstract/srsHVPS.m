@@ -12,7 +12,7 @@ classdef srsHVPS < powerSupply
             %   Detailed explanation goes here
             obj@powerSupply(address);
 
-            obj.getAllSettings;
+            %obj.getAllSettings;
         end
 
         function setVSet(obj,volt)
