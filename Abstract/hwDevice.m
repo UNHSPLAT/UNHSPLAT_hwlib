@@ -63,7 +63,9 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 end
             else
                 error("hwDevice:invalidAddress","Invalid address! Must be VISA-readable address format...");
-            end            
+            end  
+            obj.resourcelist = visadevlist;
+            obj.connectDevice();
         end
 
         function connectDevice(obj,varargin)
@@ -74,6 +76,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     % Initialize instrument object
                     obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
                     obj.Connected = true;
+                catch
+                    obj.Connected = false;
                 end
             end
         end
