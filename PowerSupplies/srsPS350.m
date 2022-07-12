@@ -17,10 +17,16 @@ classdef srsPS350 < srsHVPS
     end
 
     methods
-        function obj = srsPS350(address)
-            %SRSPS350 Construct an instance of this class
+        function obj = srsPS350(address,resourcelist,funcConfig)
+            % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@srsHVPS(address);
+            arguments
+                address string='';%
+                resourcelist = table([],[],[],[],[],[],...
+                        'VariableNames',["ResourceName","Alias","Vendor","Model","SerialNumber","Type"]);% 
+                funcConfig = @(x) x;
+            end
+            obj@srsHVPS(address,resourcelist,funcConfig);
 
         end
     end

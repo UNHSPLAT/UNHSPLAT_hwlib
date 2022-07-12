@@ -19,24 +19,17 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     properties
         Tag string = "" % User-configurable label for device
         Connected = false %connection status of hwDevice
-        resourcelist = table([],[],[],[],[],[],...
-                        'VariableNames',["ResourceName","Alias","Vendor","Model","SerialNumber","Type"])%
+        resourcelist%
+        funcConfig %
     end
 
     methods
-        function obj = hwDevice(address,varargin)
+        function obj = hwDevice(address,resourcelist,funcConfig)
             %GPIBDEVICE Construct an instance of this class
             %   Detailed explanation goes here
-
-            %assign all properties provided
-            if (nargin > 0)
-                props = varargin(1:2:numel(varargin));
-                vals = varargin(2:2:numel(varargin));
-                for i=1:numel(props)
-                    obj.(props{i})=vals{i};
-                end
-            end
-
+            
+            obj.resourcelist = resourcelist;
+            obj.funcConfig = funcConfig
             %format and store the address
             if isnumeric(address)
                 obj.Protocol = "gpib";
@@ -64,18 +57,22 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             else
                 error("hwDevice:invalidAddress","Invalid address! Must be VISA-readable address format...");
             end  
-            obj.resourcelist = visadevlist;
             obj.connectDevice();
+        end
+
+        function status = available(obj)
+            status = any(strcmp(obj.resourcelist.ResourceName,obj.Address));
         end
 
         function connectDevice(obj,varargin)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            if any(strcmp(obj.resourcelist.ResourceName,obj.Address))         
+            if obj.available()         
                 try
                     % Initialize instrument object
                     obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
                     obj.Connected = true;
+                    % obj.funcConfig(obj);
                 catch
                     obj.Connected = false;
                 end
@@ -83,42 +80,45 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         end
 
         function dataOut = devRW(obj,dataIn)
-            %
             if obj.Connected
-              if strcmp(obj.hVisa.Status,'open')
-                  deviceAlreadyOpen = true;
-              else
-                  deviceAlreadyOpen = false;
-              end
-
-              if ~deviceAlreadyOpen
-                  fopen(obj.hVisa);
-              end
-
-              fprintf(obj.hVisa,dataIn);
-
-              if nargout > 0
-                  readasync(obj.hVisa);
-                  while ~strcmp(obj.hVisa.TransferStatus,'idle')
-                      pause(0.1);
+                try
+                  if strcmp(obj.hVisa.Status,'open')
+                      deviceAlreadyOpen = true;
+                  else
+                      deviceAlreadyOpen = false;
                   end
-                  dataOut = fscanf(obj.hVisa);
-              end
 
-              if ~deviceAlreadyOpen
-                  fclose(obj.hVisa);
-              end
+                  if ~deviceAlreadyOpen
+                      fopen(obj.hVisa);
+                  end
+
+                  fprintf(obj.hVisa,dataIn);
+
+                  if nargout > 0
+                      readasync(obj.hVisa);
+                      while ~strcmp(obj.hVisa.TransferStatus,'idle')
+                          pause(0.1);
+                      end
+                      dataOut = fscanf(obj.hVisa);
+                  end
+
+                  if ~deviceAlreadyOpen
+                      fclose(obj.hVisa);
+                  end
+                catch
+                    obj.Connected = false;
+                end
             else
-                dataOut = "nan"
+                dataOut = "nan";
             end
         end
 
         function delete(obj)
-
-            if strcmp(obj.hVisa.Status,'open')
-                fclose(obj.hVisa);
+            if obj.Connected
+                if strcmp(obj.hVisa.Status,'open')
+                    fclose(obj.hVisa);
+                end
             end
-
         end
     end
 end

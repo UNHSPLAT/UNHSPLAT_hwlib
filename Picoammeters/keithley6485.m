@@ -10,9 +10,16 @@ classdef keithley6485 < hwDevice
     end
 
     methods
-        function obj = keithley6485(address)
-
-            obj@hwDevice(address);
+        function obj = keithley6485(address,resourcelist,funcConfig)
+            % Construct an instance of this class
+            %   Detailed explanation goes here
+            arguments
+                address string='';%
+                resourcelist = table([],[],[],[],[],[],...
+                        'VariableNames',["ResourceName","Alias","Vendor","Model","SerialNumber","Type"]);% 
+                funcConfig = @(x) x;
+            end
+            obj@hwDevice(address,resourcelist,funcConfig);
         end
 
         function dataOut = read(obj)
