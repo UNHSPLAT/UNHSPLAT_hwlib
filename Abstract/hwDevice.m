@@ -29,7 +29,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             %   Detailed explanation goes here
             
             obj.resourcelist = resourcelist;
-            obj.funcConfig = funcConfig
+            obj.funcConfig = funcConfig;
             %format and store the address
             if isnumeric(address)
                 obj.Protocol = "gpib";
