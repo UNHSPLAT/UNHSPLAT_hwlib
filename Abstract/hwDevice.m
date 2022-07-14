@@ -67,12 +67,13 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         function connectDevice(obj,varargin)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            if obj.available()         
+            if obj.available() && ~obj.Connected     
                 try
                     % Initialize instrument object
                     obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
                     obj.Connected = true;
-                    % obj.funcConfig(obj);
+                    pause(1)
+                    obj.funcConfig(obj);
                 catch
                     obj.Connected = false;
                 end
@@ -80,45 +81,50 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         end
 
         function dataOut = devRW(obj,dataIn)
-            if obj.Connected
-                try
-                  if strcmp(obj.hVisa.Status,'open')
-                      deviceAlreadyOpen = true;
-                  else
-                      deviceAlreadyOpen = false;
-                  end
-
-                  if ~deviceAlreadyOpen
-                      fopen(obj.hVisa);
-                  end
-
-                  fprintf(obj.hVisa,dataIn);
-
-                  if nargout > 0
-                      readasync(obj.hVisa);
-                      while ~strcmp(obj.hVisa.TransferStatus,'idle')
-                          pause(0.1);
+            if obj.available
+                trynum = 0;
+                while trynum <3
+                    try
+                      if strcmp(obj.hVisa.Status,'open')
+                          deviceAlreadyOpen = true;
+                      else
+                          deviceAlreadyOpen = false;
                       end
-                      dataOut = fscanf(obj.hVisa);
-                  end
-
-                  if ~deviceAlreadyOpen
-                      fclose(obj.hVisa);
-                  end
-                catch
-                    obj.Connected = false;
+    
+                      if ~deviceAlreadyOpen
+                          fopen(obj.hVisa);
+                      end
+    
+                      fprintf(obj.hVisa,dataIn);
+    
+                      if nargout > 0
+                          readasync(obj.hVisa);
+                          while ~strcmp(obj.hVisa.TransferStatus,'idle')
+                              pause(0.1);
+                          end
+                          dataOut = fscanf(obj.hVisa);
+                      end
+    
+                      if ~deviceAlreadyOpen
+                          fclose(obj.hVisa);
+                      end
+                      return
+                    catch
+                        trynum = trynum+1;
+                        fprintf("%s:communication attempt %d failed",obj.tag,trynum);
+                    end
                 end
-            else
-                dataOut = "nan";
             end
+            obj.Connected = false;
+            dataOut = "nan";
+        
         end
 
         function delete(obj)
-            if obj.Connected
                 if strcmp(obj.hVisa.Status,'open')
                     fclose(obj.hVisa);
                 end
-            end
+           
         end
     end
 end
