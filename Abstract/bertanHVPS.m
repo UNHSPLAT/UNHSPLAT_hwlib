@@ -30,7 +30,7 @@ classdef bertanHVPS < powerSupply
 
         function setISet(obj,curr)
 
-            obj.devRW(['L',num2str(curr/1000,'%.4f'),'M']);
+            obj.devRW(['L',num2str(curr*1000,'%.4f'),'M']);
             obj.ISet = curr;
 
         end
@@ -74,7 +74,7 @@ classdef bertanHVPS < powerSupply
             tokes = regexp(strtrim(dataOut),' ','split');
 
             volt = str2double(tokes{2}(2:end-1))*1000;
-            curr = str2double(tokes{3}(2:end-1))*1000;
+            curr = str2double(tokes{3}(2:end-1))/1000;
             if strcmpi(tokes{1},'N')
                 state = true;
             elseif strcmpi(tokes{1},'S')
