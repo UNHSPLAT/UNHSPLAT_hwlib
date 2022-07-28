@@ -30,10 +30,8 @@ classdef powerSupply < hwDevice
 
     methods (Abstract)
         setVSet(obj,volt,output)
-        volt = getVSet(obj,output)
         volt = measV(obj,output)
         setISet(obj,curr,output)
-        curr = getISet(obj,output)
         curr = measI(obj,output)
         setOutputState(obj,state,output)
         out = getOutputState(obj,output)
