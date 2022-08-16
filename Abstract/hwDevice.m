@@ -19,16 +19,14 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     properties
         Tag string = "" % User-configurable label for device
         Connected = false %connection status of hwDevice
-        resourcelist%
         funcConfig %
     end
 
     methods
-        function obj = hwDevice(address,resourcelist,funcConfig)
+        function obj = hwDevice(address,funcConfig)
             %GPIBDEVICE Construct an instance of this class
             %   Detailed explanation goes here
             
-            obj.resourcelist = resourcelist;
             obj.funcConfig = funcConfig;
             %format and store the address
             if isnumeric(address)
@@ -60,19 +58,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             obj.connectDevice();
         end
 
-        function status = available(obj)
-            status = any(strcmp(obj.resourcelist.ResourceName,obj.Address));
-        end
-
         function connectDevice(obj,varargin)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            if obj.available() && ~obj.Connected     
+            if ~obj.Connected     
                 try
                     % Initialize instrument object
                     obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
                     obj.Connected = true;
-                    pause(1)
+%                     pause(1)
                     obj.funcConfig(obj);
                 catch
                     obj.Connected = false;
@@ -81,7 +75,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         end
 
         function dataOut = devRW(obj,dataIn)
-            if obj.available
+            if obj.Connected
                 trynum = 0;
                 while trynum <3
                     try
@@ -111,13 +105,13 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       return
                     catch
                         trynum = trynum+1;
-                        fprintf("%s:communication attempt %d failed",obj.tag,trynum);
+                        fprintf("%s:communication attempt %d failed\n",obj.Tag,trynum);
                     end
                 end
+                obj.Connected = false;
+                fclose(obj.hVisa);
             end
-            obj.Connected = false;
             dataOut = "nan";
-        
         end
 
         function delete(obj)

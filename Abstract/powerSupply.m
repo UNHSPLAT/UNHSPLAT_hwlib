@@ -21,10 +21,10 @@ classdef powerSupply < hwDevice
     end
     
     methods
-        function obj = powerSupply(address,resourcelist,funcConfig)
+        function obj = powerSupply(address,funcConfig)
             % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address,resourcelist,funcConfig);
+            obj@hwDevice(address,funcConfig);
         end
     end
 

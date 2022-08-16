@@ -7,10 +7,10 @@ classdef keithleyDAQ6510 < multimeter
     end
     
     methods
-        function obj = keithleyDAQ6510(address,resourcelist,funcConfig)
+        function obj = keithleyDAQ6510(address,funcConfig)
             % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@multimeter(address,resourcelist,funcConfig);
+            obj@multimeter(address,funcConfig);
         end
         
         function val = measure(obj)

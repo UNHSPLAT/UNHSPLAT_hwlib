@@ -18,16 +18,14 @@ classdef keysightE36313A < powerSupply
     end
     
     methods
-        function obj = keysightE36313A(address,resourcelist,funcConfig)
+        function obj = keysightE36313A(address,funcConfig)
             %KEYSIGHTE36313A Construct an instance of this class
             %   Detailed explanation goes here
             arguments
                 address string='';%
-                resourcelist = table([],[],[],[],[],[],...
-                        'VariableNames',["ResourceName","Alias","Vendor","Model","SerialNumber","Type"]);% 
                 funcConfig = @(x) x;
             end
-            obj@powerSupply(address,resourcelist,funcConfig);
+            obj@powerSupply(address,funcConfig);
             %obj.getAllSettings;
         end
         
