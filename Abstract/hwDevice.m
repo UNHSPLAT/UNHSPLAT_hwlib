@@ -16,10 +16,13 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         hVisa % Handle to MATLAB visa object
     end
 
-    properties
+    properties 
         Tag string = "" % User-configurable label for device
-        Connected = false %connection status of hwDevice
         funcConfig %
+    end
+
+    properties (SetObservable) 
+        Connected = false %connection status of hwDevice
     end
 
     methods
