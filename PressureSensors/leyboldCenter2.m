@@ -8,10 +8,14 @@ classdef leyboldCenter2 < hwDevice
     end
     
     methods
-        function obj = leyboldCenter2(address)
+        function obj = leyboldCenter2(address,funcConfig)
             %LEYBOLDCENTER2 Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address);
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+            obj@hwDevice(address,funcConfig);
 
             obj.hVisa.BaudRate = 9600;
             obj.hVisa.Terminator = 'CR';

@@ -18,12 +18,15 @@ classdef keysightE36313A < powerSupply
     end
     
     methods
-        function obj = keysightE36313A(address)
+        function obj = keysightE36313A(address,funcConfig)
             %KEYSIGHTE36313A Construct an instance of this class
             %   Detailed explanation goes here
-            obj@powerSupply(address);
-
-            obj.getAllSettings;
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+            obj@powerSupply(address,funcConfig);
+            %obj.getAllSettings;
         end
         
         function setVSet(obj,volt,output)

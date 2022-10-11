@@ -10,9 +10,14 @@ classdef keithley6485 < hwDevice
     end
 
     methods
-        function obj = keithley6485(address)
-
-            obj@hwDevice(address);
+        function obj = keithley6485(address,funcConfig)
+            % Construct an instance of this class
+            %   Detailed explanation goes here
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+            obj@hwDevice(address,funcConfig);
         end
 
         function dataOut = read(obj)

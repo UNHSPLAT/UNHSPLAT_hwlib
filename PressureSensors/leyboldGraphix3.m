@@ -8,10 +8,14 @@ classdef leyboldGraphix3 < hwDevice
     end
     
     methods
-        function obj = leyboldGraphix3(address)
+        function obj = leyboldGraphix3(address,funcConfig)
             %LEYBOLDGRAPHIX3 Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address);
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+            obj@hwDevice(address,funcConfig);
 
             obj.hVisa.BaudRate = 38400;
             obj.hVisa.Terminator = 4;

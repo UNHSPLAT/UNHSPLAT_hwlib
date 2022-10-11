@@ -21,19 +21,17 @@ classdef powerSupply < hwDevice
     end
     
     methods
-        function obj = powerSupply(address)
-            %POWERSUPPLY Construct an instance of this class
+        function obj = powerSupply(address,funcConfig)
+            % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address);
+            obj@hwDevice(address,funcConfig);
         end
     end
 
     methods (Abstract)
         setVSet(obj,volt,output)
-        volt = getVSet(obj,output)
         volt = measV(obj,output)
         setISet(obj,curr,output)
-        curr = getISet(obj,output)
         curr = measI(obj,output)
         setOutputState(obj,state,output)
         out = getOutputState(obj,output)

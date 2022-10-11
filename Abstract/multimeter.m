@@ -7,10 +7,10 @@ classdef multimeter < hwDevice
     end
     
     methods
-        function obj = multimeter(address)
-            %MULTIMETER Construct an instance of this class
+        function obj = multimeter(address,funcConfig)
+            % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address);
+            obj@hwDevice(address,funcConfig);
         end
     end
 end
