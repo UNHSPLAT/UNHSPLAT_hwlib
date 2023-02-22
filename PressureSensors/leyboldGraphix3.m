@@ -22,12 +22,31 @@ classdef leyboldGraphix3 < hwDevice
         end
         
         function dataOut = leyboldRead(obj,paramGrp,paramNum)
-
             sendStr = [char(15),num2str(paramGrp),char(59),num2str(paramNum)];
             sendStr = obj.leyboldCRC(sendStr);
-
             dataOut = obj.devRW(sendStr);
+        end
 
+        function ask(obj)
+            if ~exist('sensorNum','var')
+                sensorNum = 1:3;
+            end
+            pressure = zeros(1,length(sensorNum));
+            for iS = 1:length(sensorNum)
+                paramGrp = sensorNum(iS);
+                paramNum = 29;
+                sendStr = [char(15),num2str(paramGrp),char(59),num2str(paramNum)];
+                sendStr = obj.leyboldCRC(sendStr);
+                obj.call(sendStr);
+            end
+        end
+            
+        function leyboldAnswer(obj)
+            dataOut = obj.leyboldRead(sensorNum,29);
+            pressure(iS) = str2double(strtrim(dataOut(2:end-2)));
+            if isnan(pressure(iS))
+                warning("leyboldGraphix3:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
+            end
         end
 
         function leyboldWrite(obj,paramGrp,paramNum,val)

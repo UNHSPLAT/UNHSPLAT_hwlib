@@ -15,6 +15,11 @@ classdef srsHVPS < powerSupply
             %obj.getAllSettings;
         end
 
+        function ask(obj)
+            obj.call('VOUT?');
+        end
+
+
         function setVSet(obj,volt)
 
             obj.devRW(['VSET',num2str(volt)]);
@@ -37,6 +42,8 @@ classdef srsHVPS < powerSupply
             volt = str2double(strtrim(dataOut));
             
         end
+
+        
 
         function setISet(obj,curr)
 

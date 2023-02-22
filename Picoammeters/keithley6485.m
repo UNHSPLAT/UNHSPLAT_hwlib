@@ -27,6 +27,10 @@ classdef keithley6485 < hwDevice
 
         end
 
+        function ask(obj)
+                obj.call('READ?');
+        end
+
 %         function dataOut = devRW(obj,dataIn)
 % 
 %             if nargout > 0

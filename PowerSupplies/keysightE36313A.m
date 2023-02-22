@@ -28,6 +28,20 @@ classdef keysightE36313A < powerSupply
             obj@powerSupply(address,funcConfig);
             %obj.getAllSettings;
         end
+
+        function ask(obj)
+
+%             if ~exist('output','var')
+%                 output = [1,2,3];
+%             end
+            output = 1;
+
+            chStr = num2str(output,'%i,');
+            chStr = chStr(1:end-1);
+
+            obj.call(['MEAS:VOLT? (@',chStr,')']);
+            
+        end
         
         function setVSet(obj,volt,output)
             %METHOD1 Summary of this method goes here

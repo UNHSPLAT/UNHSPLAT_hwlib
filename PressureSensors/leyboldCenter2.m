@@ -52,6 +52,19 @@ classdef leyboldCenter2 < hwDevice
             end
 
         end
+
+        function ask(obj)
+            if ~exist('sensorNum','var')
+                sensorNum = 1:2;
+            end
+
+            pressure = zeros(1,length(sensorNum));
+            for iS = 1:length(sensorNum)
+                inStr = ['PR',num2str(sensorNum(iS))];
+                obj.call(inStr);
+            end
+
+        end
     end
 end
 

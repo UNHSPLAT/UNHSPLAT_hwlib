@@ -23,6 +23,11 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties (SetObservable) 
         Connected = false %connection status of hwDevice
+        response = ''%last text response output
+        listen %
+        lastRead%
+        readFunc = @(x) NaN%
+%         ask = @(x) NaN%function which takes the relevant instrument structure and outputs val of desired format
     end
 
     methods
@@ -92,10 +97,11 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                           fopen(obj.hVisa);
                       end
     
-                      fprintf(obj.hVisa,dataIn);
+                       fprintf(obj.hVisa,dataIn);
     
                       if nargout > 0
                           readasync(obj.hVisa);
+
                           while ~strcmp(obj.hVisa.TransferStatus,'idle')
                               pause(0.1);
                           end
@@ -117,6 +123,65 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             dataOut = "nan";
         end
 
+        function val = read(obj) 
+            if all(obj.Connected)
+                val = obj.readFunc(obj);
+            else
+                val = nan;
+            end
+            obj.lastRead = val;
+        end
+
+        function call(obj,dataIn)
+            if obj.Connected
+                trynum = 0;
+                disp(obj.Tag);
+                while trynum <3
+                    try
+                      if strcmp(obj.hVisa.Status,'open')
+                          deviceAlreadyOpen = true;
+                      else
+                          deviceAlreadyOpen = false;
+                      end
+    
+                      if ~deviceAlreadyOpen
+                          fopen(obj.hVisa);
+                      end
+    
+                      fprintf(obj.hVisa,dataIn);
+    
+                      readasync(obj.hVisa);
+
+                      if ~strcmp(obj.hVisa.TransferStatus,'idle')
+                                obj.listen = listener(obj.hVisa, ...
+                                                    'TransferStatus',...
+                                                    'PostSet',...
+                                                    @obj.parse_response);
+                      else
+                          obj.parse_response();
+                      end 
+                      return
+                    catch
+                        trynum = trynum+1;
+                        fprintf("%s:communication attempt %d failed\n",obj.Tag,trynum);
+                        delete(obj.listen);
+                    end
+                end
+                obj.Connected = false;
+                fclose(obj.hVisa);
+            end
+      end
+
+      function parse_response(obj)
+          if obj.Connected
+              if strcmp(obj.hVisa.Status,'open')
+                obj.response = fscanf(obj.hVisa);
+                delete(obj.listen);
+                fclose(obj.hVisa);
+              end
+          end
+%           disp([obj.Tag,obj.response]);
+      end
         function delete(obj)
                 if strcmp(obj.hVisa.Status,'open')
                     fclose(obj.hVisa);
