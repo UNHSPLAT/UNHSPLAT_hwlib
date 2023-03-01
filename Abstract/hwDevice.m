@@ -9,7 +9,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties (SetAccess = private)
         Address string % Device address in VISA format (i.e. GPIB0::4::INSTR, TCPIP0::169.254.2.20::inst0::INSTR, etc.)
-        Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
     end
 
     properties (SetAccess = protected)
@@ -23,6 +22,12 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties (SetObservable) 
         Connected = false %connection status of hwDevice
+        readFunc = @(x) nan%
+        lastRead %
+        lastReader %
+        futureReader%
+
+        Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
     end
 
     methods
@@ -116,8 +121,33 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             end
             dataOut = "nan";
         end
+        
+        function readIt(obj) 
+            if obj.Connected
+                obj.lastRead = obj.readFunc(obj);
+            else
+                obj.lastRead = nan;
+            end
+        end
 
-        function delete(obj)
+        function readParf(obj,pool) 
+            if obj.Connected
+                obj.futureReader = parfeval(pool,@obj.readFunc,1,obj);
+                obj.lastReader = afterAll(obj.futureReader,@(~)obj.evalRead(),0);
+            else
+                obj.lastRead = nan;
+            end
+        end
+
+        function evalRead(obj)
+            try
+                obj.lastRead = fetchOutputs(obj.futureReader);
+            catch
+                obj.lastRead = nan;
+            end
+        end
+
+        function delete(obj,~)
                 if strcmp(obj.hVisa.Status,'open')
                     fclose(obj.hVisa);
                 end
