@@ -26,7 +26,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         lastRead %
         lastReader %
         futureReader%
-
+        refreshRate = 4 %
+        Timer = timer
         Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
     end
 
@@ -63,6 +64,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             else
                 error("hwDevice:invalidAddress","Invalid address! Must be VISA-readable address format...");
             end  
+
+            obj.initTimer();
             obj.connectDevice();
         end
 
@@ -76,8 +79,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     obj.Connected = true;
 %                     pause(1)
                     obj.funcConfig(obj);
+                    obj.restartTimer();
                 catch
                     obj.Connected = false;
+                    obj.stopTimer();
                 end
             end
         end
@@ -118,11 +123,12 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 end
                 obj.Connected = false;
                 fclose(obj.hVisa);
+                obj.stopTimer();
             end
             dataOut = "nan";
         end
         
-        function read(obj) 
+        function read(obj,~,~) 
             if obj.Connected
                 obj.lastRead = obj.readFunc(obj);
             else
@@ -148,11 +154,42 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         end
 
         function delete(obj,~)
-                if strcmp(obj.hVisa.Status,'open')
-                    fclose(obj.hVisa);
-                end
-           
+            if strcmp(obj.hVisa.Status,'open')
+                fclose(obj.hVisa);
+            end
+            obj.stopTimer();
         end
+        
+        function initTimer(obj)
+            obj.Timer = timer('Period',obj.refreshRate,... %period
+                                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
+                                      'BusyMode','drop',... %{drop, error, queue}       
+                                      'StartDelay',0,...
+                                      'TimerFcn',@obj.read...
+                                      );
+        end
+
+        function restartTimer(obj)
+            %RESTARTTIMER Restarts timer if error
+
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
+
+            % Restart timer
+            if obj.Connected
+                start(obj.Timer);
+            end
+        end
+
+        function stopTimer(obj)
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
+        end
+        
     end
 end
 

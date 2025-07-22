@@ -50,7 +50,7 @@ classdef leyboldGraphix3 < hwDevice
                 dataOut = obj.leyboldRead(sensorNum(iS),29);
                 pressure(iS) = str2double(strtrim(dataOut(2:end-2)));
                 if isnan(pressure(iS))
-                    warning("leyboldGraphix3:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
+                    %warning("leyboldGraphix3:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
                 end
             end
 
