@@ -122,7 +122,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             dataOut = "nan";
         end
         
-        function readIt(obj) 
+        function read(obj) 
             if obj.Connected
                 obj.lastRead = obj.readFunc(obj);
             else
