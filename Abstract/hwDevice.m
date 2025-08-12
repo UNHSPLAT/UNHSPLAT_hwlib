@@ -9,7 +9,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties (SetAccess = private)
         Address string % Device address in VISA format (i.e. GPIB0::4::INSTR, TCPIP0::169.254.2.20::inst0::INSTR, etc.)
-        Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
     end
 
     properties (SetAccess = protected)
@@ -23,6 +22,13 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties (SetObservable) 
         Connected = false %connection status of hwDevice
+        readFunc = @(x) nan%
+        lastRead %
+        lastReader %
+        futureReader%
+        refreshRate = 4 %
+        Timer = timer
+        Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
     end
 
     methods
@@ -58,6 +64,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             else
                 error("hwDevice:invalidAddress","Invalid address! Must be VISA-readable address format...");
             end  
+
+            obj.initTimer();
             obj.connectDevice();
         end
 
@@ -71,8 +79,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     obj.Connected = true;
 %                     pause(1)
                     obj.funcConfig(obj);
+                    obj.restartTimer();
                 catch
                     obj.Connected = false;
+                    obj.stopTimer();
                 end
             end
         end
@@ -113,16 +123,73 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 end
                 obj.Connected = false;
                 fclose(obj.hVisa);
+                obj.stopTimer();
             end
             dataOut = "nan";
         end
-
-        function delete(obj)
-                if strcmp(obj.hVisa.Status,'open')
-                    fclose(obj.hVisa);
-                end
-           
+        
+        function read(obj,~,~) 
+            if obj.Connected
+                obj.lastRead = obj.readFunc(obj);
+            else
+                obj.lastRead = nan;
+            end
         end
+
+        function readParf(obj,pool) 
+            if obj.Connected
+                obj.futureReader = parfeval(pool,@obj.readFunc,1,obj);
+                obj.lastReader = afterAll(obj.futureReader,@(~)obj.evalRead(),0);
+            else
+                obj.lastRead = nan;
+            end
+        end
+
+        function evalRead(obj)
+            try
+                obj.lastRead = fetchOutputs(obj.futureReader);
+            catch
+                obj.lastRead = nan;
+            end
+        end
+
+        function delete(obj,~)
+            if strcmp(obj.hVisa.Status,'open')
+                fclose(obj.hVisa);
+            end
+            obj.stopTimer();
+        end
+        
+        function initTimer(obj)
+            obj.Timer = timer('Period',obj.refreshRate,... %period
+                                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
+                                      'BusyMode','drop',... %{drop, error, queue}       
+                                      'StartDelay',0,...
+                                      'TimerFcn',@obj.read...
+                                      );
+        end
+
+        function restartTimer(obj)
+            %RESTARTTIMER Restarts timer if error
+
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
+
+            % Restart timer
+            if obj.Connected
+                start(obj.Timer);
+            end
+        end
+
+        function stopTimer(obj)
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
+        end
+        
     end
 end
 

@@ -45,7 +45,7 @@ classdef leyboldCenter2 < hwDevice
                 tokes = regexp(strtrim(dataOut),char(32),'split');
                 if str2double(tokes{1}) > 2
                     pressure(iS) = NaN;
-                    warning("leyboldCenter2:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
+                    %warning("leyboldCenter2:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
                 else
                     pressure(iS) = str2double(tokes{2});
                 end

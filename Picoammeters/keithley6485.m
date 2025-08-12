@@ -20,7 +20,7 @@ classdef keithley6485 < hwDevice
             obj@hwDevice(address,funcConfig);
         end
 
-        function dataOut = read(obj)
+        function dataOut = readDev(obj)
 
             dataOut = obj.devRW('READ?');
             dataOut = str2double(strtrim(dataOut));

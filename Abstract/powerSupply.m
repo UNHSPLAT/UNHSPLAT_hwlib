@@ -24,6 +24,11 @@ classdef powerSupply < hwDevice
         function obj = powerSupply(address,funcConfig)
             % Construct an instance of this class
             %   Detailed explanation goes here
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+            
             obj@hwDevice(address,funcConfig);
         end
     end

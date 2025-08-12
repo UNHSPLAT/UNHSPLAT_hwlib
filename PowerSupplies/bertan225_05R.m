@@ -19,7 +19,7 @@ classdef bertan225_05R < bertanHVPS
     methods
         function obj = bertan225_05R(address)
             %BERTAN225_05R Construct an instance of this class
-            %   Detailed explanation goes here
+            %   Detailed explanation goes herew\
             obj@bertanHVPS(address);
 
         end
