@@ -66,7 +66,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             end  
 
             obj.initTimer();
-            obj.connectDevice();
         end
 
         function connectDevice(obj,varargin)
@@ -132,7 +131,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             if obj.Connected
                 obj.lastRead = obj.readFunc(obj);
             else
-                obj.lastRead = nan;
+                obj.lastRead = obj.lastRead*nan;
             end
         end
 

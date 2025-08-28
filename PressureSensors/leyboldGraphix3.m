@@ -19,6 +19,7 @@ classdef leyboldGraphix3 < hwDevice
 
             obj.hVisa.BaudRate = 38400;
             obj.hVisa.Terminator = 4;
+            obj.lastRead = [nan,nan,nan];
         end
         
         function dataOut = leyboldRead(obj,paramGrp,paramNum)

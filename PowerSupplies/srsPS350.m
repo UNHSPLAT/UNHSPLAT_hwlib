@@ -25,6 +25,7 @@ classdef srsPS350 < srsHVPS
                 funcConfig = @(x) x;
             end
             obj@srsHVPS(address,funcConfig);
+            obj.lastRead = nan;
 
         end
     end

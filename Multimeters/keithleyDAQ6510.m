@@ -11,6 +11,7 @@ classdef keithleyDAQ6510 < multimeter
             % Construct an instance of this class
             %   Detailed explanation goes here
             obj@multimeter(address,funcConfig);
+            obj.lastRead = [nan,nan,nan];
         end
         
         function val = measure(obj)
