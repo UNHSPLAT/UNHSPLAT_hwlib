@@ -66,6 +66,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             end  
 
             obj.initTimer();
+            obj.connectDevice();
         end
 
         function connectDevice(obj,varargin)
@@ -78,7 +79,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     obj.Connected = true;
 %                     pause(1)
                     obj.funcConfig(obj);
-                    obj.restartTimer();
                 catch
                     obj.Connected = false;
                     obj.stopTimer();
