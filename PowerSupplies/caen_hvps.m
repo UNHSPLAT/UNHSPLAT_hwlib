@@ -30,6 +30,12 @@ classdef caen_hvps < handle
             con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
         end
 
+        function resp = command(obj, command_type, channel, parameter, value)
+            cmd = HVPS_command(command_type, channel, parameter, value);
+            resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
+            % Optionally process resp if needed
+        end
+
         function val = read(obj,~,~)
 %             obj.lastRead=obj.getAllPositions();
             val = obj.lastRead;
