@@ -57,24 +57,43 @@ classdef caen_hvps < handle
         end
 
         function val = read(obj,~,~)
+            % needs update
 %             obj.lastRead=obj.getAllPositions();
             val = obj.lastRead;
         end
 
-        function shutdown(obj,~,~)
-                if isvalid(obj.myxps)
-                    things = obj.myxps.KillAll();
-                    obj.myxps.CloseInstrument;
-                end
-                stop(obj.Timer);
-                obj.Connected = false;
-                obj.lastRead = nan;
+        function setVSet(obj,volt)
+
         end
 
-        function run(obj)
-            obj.initDevice();
-            obj.home();
-            start(obj.Timer)
+        function volt = getVSet(obj)
+
+        end
+
+        function volt = measV(obj)
+            
+        end
+
+        function setISet(obj,curr)
+
+        end
+
+        function curr = getISet(obj)
+
+        end
+
+        function curr = measI(obj)
+
+        end
+
+        function pow = measP(obj)
+
+        end
+
+        function shutdown(obj,~,~)
+                stop(obj.Timer);
+                obj.Connected = false;
+                obj.lastRead = nan*obj.lastRead;
         end
 
         function restart(obj,~,~)
