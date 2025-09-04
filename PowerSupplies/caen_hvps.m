@@ -1,29 +1,38 @@
 classdef caen_hvps < handle
 
     properties
-        Tag string =""%
+%         Tag string =""%
         textLabel string = ""% 
         unit string = ""%
         address string = ""%
         asmInfo %
     end
 
+    properties (Constant)
+        Type string = "Power Supply"
+        ModelNum string = "caen_N1470"
+    end
+
     properties (SetObservable) 
         Timer=timer%
         Connected%
-        lastRead%
+        lastRead = [nan,nan,nan,nan];%
         funcConfig
 
         equip_config_folder string = "" % folder containing config file
         equip_config_filename string = 'config_caenPS.ini'
         hvps_section string = 'HVPS'
         port_key 
-        
+        LBus_Address = 2
     end
 
     methods
-        function obj = caen_hvps()
-            
+        function obj = caen_hvps(address,funcConfig)
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
+%             obj@hwDevice(address,funcConfig);
         end
 
         function con_stat = connectDevice(obj)
@@ -31,9 +40,20 @@ classdef caen_hvps < handle
         end
 
         function resp = command(obj, command_type, channel, parameter, value)
-            cmd = HVPS_command(command_type, channel, parameter, value);
+            % Args:
+            %   command_type (char)
+            %     CMD : MON, SET
+            %   HVPS_Channel (scalar)
+            %     CH : 0..4 (4 for the commands related to all Channels)
+            %   HVPS_Parameter (char)
+            %     PAR : (see parameters tables)
+            %   HVPS_Value (scalar or char) or [] to omit
+            %     VAL : (numerical value must have a Format compatible with resolution and range) 
+
+            tic;
+            cmd = HVPS_command(obj.LBus_Address,command_type, channel, parameter, value);
             resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
-            % Optionally process resp if needed
+            display(toc);
         end
 
         function val = read(obj,~,~)
@@ -88,22 +108,9 @@ classdef caen_hvps < handle
             obj.shutdown();
         end
 
-
-        
     end
 end
 
-function out = hvps(varargin)
-% hvps.m
-% Convenience shim so the file can be on path even if you only call the
-% inner functions directly. This top-level function does nothing.
-% Use:
-%   ok = HVPS_connect(folder, filename, hvps_section, port_key)
-%   cmd = HVPS_command(command_type, channel, parameter, value)
-%   resp = send_command_to_HVPS(command, config_folder, config_filename, hvps_section)
-
-out = []; %#ok<NASGU>
-end
 
 function ok = HVPS_connect(equip_config_folder, equip_config_filename, hvps_section, port_key)
 % Checks if the HVPS is connected to the port specified in the INI config.
@@ -146,20 +153,24 @@ catch ME
 end
 end
 
-function cmd = HVPS_command(command_type, HVPS_Channel, HVPS_Parameter, HVPS_Value)
+function cmd = HVPS_command(LBus_Address,command_type, HVPS_Channel, HVPS_Parameter, HVPS_Value)
 % Constructs the command string for the HVPS (with \r\n terminator).
 % Args:
 %   command_type (char)
+%     CMD : MON, SET
 %   HVPS_Channel (scalar)
+%     CH : 0..4 (4 for the commands related to all Channels)
 %   HVPS_Parameter (char)
+%     PAR : (see parameters tables)
 %   HVPS_Value (scalar or char) or [] to omit
+%     VAL : (numerical value must have a Format compatible with resolution and range) 
 %
 % Returns: char
 
 if nargin < 4 || isempty(HVPS_Value)
-    cmd = sprintf('$BD:00,CMD:%s,CH:%d,PAR:%s\r\n', string(command_type), HVPS_Channel, string(HVPS_Parameter));
+    cmd = sprintf('$BD:%2d,CMD:%s,CH:%d,PAR:%s\r\n',LBus_Address, string(command_type), HVPS_Channel, string(HVPS_Parameter));
 else
-    cmd = sprintf('$BD:00,CMD:%s,CH:%d,PAR:%s,VAL:%s\r\n', string(command_type), HVPS_Channel, string(HVPS_Parameter), string(HVPS_Value));
+    cmd = sprintf('$BD:%2d,CMD:%s,CH:%d,PAR:%s,VAL:%s\r\n',LBus_Address, string(command_type), HVPS_Channel, string(HVPS_Parameter), string(HVPS_Value));
 end
 end
 
@@ -219,7 +230,7 @@ try
     write(s, uint8(command), "uint8");
 
     % Small pause to mirror Python's time.sleep(0.1)
-    pause(0.10);
+    pause(0.01);
 
     % Read one line (until LF)
     resp = readline(s);
