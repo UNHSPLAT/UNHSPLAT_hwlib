@@ -83,3 +83,118 @@ end
 % It's polite to clean up after yourself
 calllib('okFrontPanel', 'okFrontPanel_Close',okfp);
 calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
+end
+
+function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
+    % acquirePPA_ok - Rev 0, SXL, 8/13/2025
+    %  "okfp": opal kelly object
+    %  "acq_time": int where '0' correspond to 1 sec acquisition time and '1' to
+    %  10 sec
+    %  "rawLCnt": 16x1 double holding the values of the raw count; note that
+    %  Anode 0,7,8,15 are 32 bit while the others are 16 bit
+    %  "rawUCnt": 4x1 double holding the values of the raw count; they
+    %  correspond to Anode 0,7,8,15; all values are 32 bit
+    %  "ppACnt": 16x1 double holding the values of the ppa count (divided by 2); 
+    %  all values are 32 bit
+    rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
+    rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
+    ppaCnt = zeros(1,16);       % empty array for ppa count
+
+    % Clear Counters
+
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('41'), 2);  % Clear PPA Counters
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('41'), 3);  % Clear Upper Raw Counters
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
+    
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('41'), 0);  % Start Acquisition
+    
+   
+    % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
+    if(acq_time == 0)
+        pause(1+1);
+    elseif(acq_time == 1)
+        pause(10+1);
+    end
+
+    calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', okfp);       % get the final wireout (count values)
+    
+    for i = 0:15
+
+        ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('22')+i);       % PPA map to address x"22" - x"31"
+        
+        if(i==0) % Anode 0 - raws
+            rawLCnt(0+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('39'));
+            rawUCnt(1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('35'));
+        elseif(i==7)  % Anode 7 - raws
+            rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('38'));
+            rawUCnt(2) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('34'));
+        elseif(i==8)  % Anode 8 - raws
+            rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('37'));
+            rawUCnt(3) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('33'));
+        elseif(i==15)  % Anode 15 - raws
+            rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('36'));
+            rawUCnt(4) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('32'));
+        else % All other Anodes - raws
+            if(i<8) % mapping to the correct address
+                raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-1)/2));
+            else
+                raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-3)/2));
+            end
+
+            if(mod(i,2)) % odd # anode (apply mask)
+                rawLCnt(i+1) = bitand(raw, hex2dec('ffff'));
+            else % even # anode (apply mask)
+                rawLCnt(i+1) = bitand(raw, hex2dec('ffff0000')) / 2^16;
+            end
+        end
+    
+        %disp(['Anode ' num2str(i) ': ' num2str(rawLCnt(i+1)) ' | ' num2str(ppaCnt(i+1)/2)]);
+    end
+
+end
+
+function configurePPA_ok(okfp, DAC_table, acq_time)
+    % configurePPA_ok - Rev 0, SXL, 8/13/2025
+    %  "okfp": opal kelly object
+    %  "DAC_tabl"e: 1x16 double holding the threshold values for Anode0-15 (in
+    %  order)
+    %  "acq_time": int where '0' correspond to 1 sec acquisition time and '1' to
+    %  10 sec
+    % Set DAC values
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('02'), uint32(DAC_table(1)  * 2^0),   hex2dec('ff'));          % Lower 0
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('02'), uint32(DAC_table(2)  * 2^8),   hex2dec('ff00'));        % Lower 1
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('02'), uint32(DAC_table(3)  * 2^16),  hex2dec('ff0000'));      % Lower 2
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('02'), uint32(DAC_table(4)  * 2^24),  hex2dec('ff000000'));    % Lower 3
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('03'), uint32(DAC_table(5)  * 2^0),   hex2dec('ff'));          % Lower 4
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('03'), uint32(DAC_table(6)  * 2^8),   hex2dec('ff00'));        % Lower 5
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('03'), uint32(DAC_table(7)  * 2^16),  hex2dec('ff0000'));      % Lower 6
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('03'), uint32(DAC_table(8)  * 2^24),  hex2dec('ff000000'));    % Lower 7
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('04'), uint32(DAC_table(9)  * 2^0),   hex2dec('ff'));          % Lower 8
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('04'), uint32(DAC_table(10) * 2^8),   hex2dec('ff00'));        % Lower 9
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('04'), uint32(DAC_table(11) * 2^16),  hex2dec('ff0000'));      % Lower 10
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('04'), uint32(DAC_table(12) * 2^24),  hex2dec('ff000000'));    % Lower 11
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('05'), uint32(DAC_table(13) * 2^0),   hex2dec('ff'));          % Lower 12
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('05'), uint32(DAC_table(14) * 2^8),   hex2dec('ff00'));        % Lower 13
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('05'), uint32(DAC_table(15) * 2^16),  hex2dec('ff0000'));      % Lower 14
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('05'), uint32(DAC_table(16) * 2^24),  hex2dec('ff000000'));    % Lower 15
+    calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', okfp);
+
+    % Update the DAC values
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('40'), 1);
+
+    % Check DACs updated
+    pause(0.5);
+    calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', okfp);
+    if calllib('okFrontPanel', 'okFrontPanel_IsTriggered', okfp, hex2dec('60'), 1)
+        disp(['DACs updated with ' num2str(max(DAC_table))]);
+    else
+        disp('DACs did not update :(');
+    end
+    
+    % Set Acquisition Time
+    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', okfp, hex2dec('08'), uint32(acq_time),hex2dec('1'));          % '0' for 1 sec, '1' for 10 sec
+    calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', okfp);
+
+    % Update the PPA trigger
+    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('40'), 2);
+end
