@@ -1,61 +1,149 @@
-function [rawCntFinal, ppaCntFinal] = findThreshold_ok(filename)
+classdef SWIPS_OK < handle
+
+    properties
+%         Tag string =""%
+        textLabel string = ""% 
+        unit string = ""%
+        address string = ""%
+        asmInfo %
+    end
+
+    properties (Constant)
+        Type string = "Power Supply"
+        ModelNum string = "caen_N1470"
+    end
+
+    properties (SetObservable) 
+        Timer=timer%
+        Connected%
+        lastRead = [zeros(1,16),zeros(1,4),zeros(1,16)]
+        funcConfig
+
+        bitfile string   % fpga bit file
+        dac_table = ones(1,16); % default DAC table
+        okfp % opal kelly object
+        acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
+    end
+
+    methods
+        function obj = SWIPS_OK(bitfile,funcConfig)
+            arguments
+                bitfile string='bitfile_git-0x0f27429b_swips.bit';%
+                funcConfig = @(x) x;
+            end
+            obj.bitfile = bitfile;
+            obj.funcConfig = funcConfig;
+        end
+
+        function connectDevice(obj)
+            if ~obj.Connected
+                %% Configuration - Load Library and Open Device
+                % load OkLibrary
+                if ~libisloaded('okFrontPanel')
+                    loadlibrary('okFrontPanel', 'okFrontPanel.h');
+                end
+
+                % Construct FrontPanel
+                obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
+
+                % get device number
+                n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
+
+                if n == 0
+                    disp('Please Connect Opal Kelly Device')
+                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                    obj.Connected = false;
+                    return
+                elseif n > 1
+                    disp('Too Many Opal Kelly Devices Connected')
+                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                    obj.Connected = false;
+                    return
+                end 
+
+                err = calllib('okFrontPanel', 'okFrontPanel_OpenBySerial',obj.okfp,'');
+                if ~strcmp(err,'ok_NoError')
+                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                    disp('Error Opening FrontPanel Device')
+                    
+                    obj.Connected = false;
+                    return
+                end
+
+                % program the device
+                err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', obj.okfp, obj.bitfile);
+                if ~strcmp(err,'ok_NoError')
+                    calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                    disp('Error Programming FrontPanel Device')
+                    
+                    obj.Connected = false;
+                    return
+                end
+
+                %% Code Execution
+                % Do things here.
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+
+                git = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('20'));
+                disp(['Git Hash: 0x',dec2hex(git,8)])
+                obj.Connected = true;
+
+                obj.funcConfig(obj);
+            end
+        end
+
+        function connect(obj)
+            obj.funcConfig(obj);
+            % obj.Timer = timer('ExecutionMode','fixedRate',...
+            %                     'Period',1,...
+            %                     'TimerFcn',@(~,~) obj.readData());
+            % start(obj.Timer);
+        end
+
+        function delete(obj)
+            if obj.Connected
+                stop(obj.Timer);
+                delete(obj.Timer);
+                
+                calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+            end
+        end
+
+        function congigurePPA_ok(obj, dac_table)
+
+            if obj.Connected
+                obj.dac_table = dac_table;
+                configurePPA_ok(obj.okfp, dac_table, obj.acq_time); % 1 for 10 sec acquisition time
+            end
+        end
+
+        function readData(obj)
+            if obj.Connected
+                obj.lastRead = acquirePPA_ok(obj.okfp,obj.acq_time);
+            else
+                obj.lastRead = obj.lastRead*nan;
+            end
+        end
+    end
+end
+
+function [rawCntFinal, ppaCntFinal] = findThreshold_ok(bitfile,acq_time,dac_table)
 
 %% Parameter configuration
-bitfile = 'bitfile_git-0x0f27429b_swips.bit';   % fpga bit file
+% bitfile = 'bitfile_git-0x0f27429b_swips.bit';   % fpga bit file
 
-acq_time = 1;       % '1' for 10 sec acquisition time; '0' for 1 sec
+% acq_time = 1;       % '1' for 10 sec acquisition time; '0' for 1 sec
 %dac_table = [99 82 78 80 80 70 68 71 95 99 103 103 98 90 80 90];
-dac_table = ones(1,16);
+% dac_table = ones(1,16);
 
 %% Output
 filename = 'TRL6_Threshold_DarkCount.xlsx';     % output file name
 rawCntFinal = 0:15;
 ppaCntFinal = 0:15;
 
-%% Configuration - Load Library and Open Device
-% load OkLibrary
-if ~libisloaded('okFrontPanel')
-    loadlibrary('okFrontPanel', 'okFrontPanel.h');
-end
 
-% Construct FrontPanel
-okfp = calllib('okFrontPanel','okFrontPanel_Construct');
-
-% get device number
-n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',okfp);
-
-if n == 0
-    disp('Please Connect Opal Kelly Device')
-    calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
-    return
-elseif n > 1
-    disp('Too Many Opal Kelly Devices Connected')
-    calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
-    return
-end 
-
-err = calllib('okFrontPanel', 'okFrontPanel_OpenBySerial',okfp,'');
-if ~strcmp(err,'ok_NoError')
-    calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
-    disp('Error Opening FrontPanel Device')
-    return
-end
-
-% program the device
-err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', okfp, bitfile);
-if ~strcmp(err,'ok_NoError')
-    calllib('okFrontPanel', 'okFrontPanel_Close',okfp);
-    calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
-    disp('Error Programming FrontPanel Device')
-    return
-end
-
-%% Code Execution
-% Do things here.
-calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', okfp);
-
-git = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('20'));
-disp(['Git Hash: 0x',dec2hex(git,8)])
 
 % Create XLS sheets
 writematrix(0:15, filename, 'Sheet', 'rawCnt');
