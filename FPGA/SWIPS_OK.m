@@ -15,8 +15,8 @@ classdef SWIPS_OK < handle
 
     properties (SetObservable) 
         Timer=timer%
-        Connected%
-        lastRead = [zeros(1,16),zeros(1,4),zeros(1,16)]
+        Connected = false%
+        lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
         funcConfig
 
         bitfile string   % fpga bit file
@@ -121,10 +121,20 @@ classdef SWIPS_OK < handle
 
         function readData(obj)
             if obj.Connected
-                obj.lastRead = acquirePPA_ok(obj.okfp,obj.acq_time);
+                stuff = acquirePPA_ok(obj.okfp,obj.acq_time);
+                
+                obj.lastRead('rawLCnt') = stuff(1);
+                obj.lastRead('rawUCnt') = stuff(2);
+                obj.lastRead('PPACnt') = stuff(3);
             else
-                obj.lastRead = obj.lastRead*nan;
+                obj.read_nan();
             end
+        end
+
+        function read_nan(obj);
+            obj.lastRead.rawLCnt = obj.lastRead.rawLCnt*nan;
+            obj.lastRead.rawUCnt = obj.lastRead.rawUCnt*nan;
+            obj.lastRead.PPACnt = obj.lastRead.PPACnt*nan;
         end
     end
 end
