@@ -62,32 +62,58 @@ classdef caen_hvps < handle
             val = obj.lastRead;
         end
 
-        function setVSet(obj,volt)
-
+        function setVSet(obj,chn,volt) %sets the voltage for channel chn (V)
+            resp = command(obj,"SET",chn,"VSET",volt);
         end
 
-        function volt = getVSet(obj)
-
+        function volt = getVSet(obj,chn) %returns value of VSET (voltage setting, not actual monitored voltage) in channels 0-3 (V)
+            resp = command(obj,"MON",chn,"VSET",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 volt = dum(2:5); else volt = dum(2); end;
         end
 
-        function volt = measV(obj)
-            
+        function volt = measV(obj,chn) %returns value of VMON (voltage monitor) in channels 0-3 (V)
+            resp = command(obj,"MON",chn,"VMON",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 volt = dum(2:5); else volt = dum(2); end
         end
 
-        function setISet(obj,curr)
-
+        function setISet(obj,chn,curr) %sets the trip current threshold (uA)
+            resp = command(obj,"SET",chn,"ISET",curr);
         end
 
-        function curr = getISet(obj)
-
+        function curr = getISet(obj,chn) %returns value of the trip current threshold values (uA)
+            resp = command(obj,"MON",chn,"ISET",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 curr = dum(2:5); else curr = dum(2); end
         end
 
-        function curr = measI(obj)
-
+        function curr = measI(obj,chn) %returns value of IMON (current monitor) in channels 0-3 (uA)
+            resp = command(obj,"MON",chn,"IMON",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 curr = dum(2:5); else curr = dum(2); end
         end
 
-        function pow = measP(obj)
+        function setIMRANGE(obj,chn,range) %sets the range for the current (high or low)
+            if range == "HIGH" || range == "LOW"
+                resp = command(obj,"SET",chn,"IMRANGE",range);
+            else fprintf("Not HIGH or LOW\n"); end
+        end
 
+        %left off here, still need to add On and Off functions
+        function range = getIMRANGE(obj,chn) %returns value of the current range (0 is low, 1 is high)
+            resp = command(obj,"MON",chn,"IMRANGE",[])
+            first  = extractBetween(resp,"VAL:",";")
+            second = extractBetween(resp,first+";",";")
+            third  = extractBetween(resp,second+";",";")
+            forth  = extractBetween(resp,third+";",[])
+            if chn == 4 range = dum(2:5); else range = dum(2); end
+        end
+
+        function pow = measP(obj,chn) %returns power status of channel chn
+            resp = command(obj,"MON",chn,"PDWN",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 pow = dum(2:5); else pow = dum(2); end
         end
 
         function shutdown(obj,~,~)
