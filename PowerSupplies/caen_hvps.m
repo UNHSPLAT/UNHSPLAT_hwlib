@@ -97,21 +97,58 @@ classdef caen_hvps < handle
         function setIMRANGE(obj,chn,range) %sets the range for the current (high or low)
             if range == "HIGH" || range == "LOW"
                 resp = command(obj,"SET",chn,"IMRANGE",range);
-            else fprintf("Not HIGH or LOW\n"); end
+            else 
+                fprintf("Not HIGH or LOW\n"); 
+            end
         end
 
-        %left off here, still need to add On and Off functions
-        function range = getIMRANGE(obj,chn) %returns value of the current range (0 is low, 1 is high)
-            resp = command(obj,"MON",chn,"IMRANGE",[])
-            first  = extractBetween(resp,"VAL:",";")
-            second = extractBetween(resp,first+";",";")
-            third  = extractBetween(resp,second+";",";")
-            forth  = extractBetween(resp,third+";",[])
-            if chn == 4 range = dum(2:5); else range = dum(2); end
+        function range = getIMRANGE(obj) %returns value of the current range for all channels (0 is low, 1 is high)
+            resp = command(obj,"MON",4,"IMRANGE",[]);
+            first  = extractBetween(resp,"VAL:",";");
+            second = extractBetween(resp,first+";",";");
+            third  = extractBetween(resp,first+";"+second+";",";");
+            fourth  = extractAfter(resp,first+";"+second+";"+third+";");
+            range = [0,0,0,0];
+            if first  == "HIGH"
+                range(1) = 1; end
+            if second == "HIGH"
+                range(2) = 1; end
+            if third  == "HIGH"
+                range(3) = 1; end
+            if fourth == "HIGH"
+                range(4) = 1; end
         end
 
-        function pow = measP(obj,chn) %returns power status of channel chn
-            resp = command(obj,"MON",chn,"PDWN",[]);
+        function setRUP(obj,chn,curr) %sets the ramp up rate (V)
+            resp = command(obj,"SET",chn,"RUP",curr);
+        end
+
+        function rup = getRUP(obj,chn) %returns value of the ramp up rate values (V)
+            resp = command(obj,"MON",chn,"RUP",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 rup = dum(2:5); else rup = dum(2); end
+        end
+
+        function setRDW(obj,chn,curr) %sets the ramp down rate (V)
+            resp = command(obj,"SET",chn,"RDW",curr);
+        end
+
+        function rdw = getRDW(obj,chn) %returns value of the ramp down rate (V)
+            resp = command(obj,"MON",chn,"RDW",[]);
+            dum  = extractNumFromStr(resp);
+            if chn == 4 rdw = dum(2:5); else rdw = dum(2); end
+        end
+
+        function setON(obj,chn) %sets the channel on
+            resp = command(obj,"SET",chn,"ON",[]);
+        end
+
+        function setOFF(obj,chn) %sets the channel off
+            resp = command(obj,"SET",chn,"OFF",[]);
+        end
+
+        function pow = measP(obj,chn) %returns channel status
+            resp = command(obj,"MON",chn,"STAT",[]);
             dum  = extractNumFromStr(resp);
             if chn == 4 pow = dum(2:5); else pow = dum(2); end
         end
@@ -400,3 +437,9 @@ function y = ternary(cond, a, b)
 if cond, y = a; else, y = b; end
 end
 
+function numArray = extractNumFromStr(str)
+  str1 = regexprep(str,'[,;=]', ' ');
+  str2 = regexprep(regexprep(str1,'[^- 0-9.eE(,)/]',''), ' \D* ',' ');
+  str3 = regexprep(str2, {'\.\s','\E\s','\e\s','\s\E','\s\e'},' ');
+  numArray = str2num(str3);
+end
