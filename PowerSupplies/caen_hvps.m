@@ -15,7 +15,7 @@ classdef caen_hvps < handle
 
     properties (SetObservable) 
         Timer=timer%
-        Connected%
+        Connected = false
         lastRead = [nan,nan,nan,nan];%
         funcConfig
 
@@ -24,6 +24,7 @@ classdef caen_hvps < handle
         hvps_section string = 'HVPS'
         port_key 
         LBus_Address = 2
+        Tag
     end
 
     methods
@@ -32,11 +33,20 @@ classdef caen_hvps < handle
                 address string='';%
                 funcConfig = @(x) x;
             end
-%             obj@hwDevice(address,funcConfig);
+%              initialize timer to grab position data at some cadence
+            obj.Timer =  timer('Period',5,... %period
+                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
+                      'BusyMode','drop',... %{drop, error, queue}
+                      'StartDelay',0,...
+                      'TimerFcn',@obj.read ...
+                      );
         end
 
         function con_stat = connectDevice(obj)
+            if ~obj.Connected
             con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
+            obj.Connected = true;
+            end
         end
 
         function resp = command(obj, command_type, channel, parameter, value)
@@ -58,7 +68,9 @@ classdef caen_hvps < handle
 
         function val = read(obj,~,~)
             % needs update
-%             obj.lastRead=obj.getAllPositions();
+            fprintf('sdfds');
+%             obj.lastRead=obj.measV(4);
+            obj.lastRead=obj.getVSet(4);
             val = obj.lastRead;
         end
 

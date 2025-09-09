@@ -9,12 +9,12 @@ classdef SWIPS_OK < handle
     end
 
     properties (Constant)
-        Type string = "Power Supply"
-        ModelNum string = "caen_N1470"
+        Type string = "FPGA"
+        ModelNum string = "OpalKelly_XXXX"
     end
 
     properties (SetObservable) 
-        Timer=timer%
+        Timer=timer("TimerFcn",@(x,~,~) 1)%
         Connected = false%
         lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
         funcConfig
@@ -23,12 +23,13 @@ classdef SWIPS_OK < handle
         dac_table = ones(1,16); % default DAC table
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
+        Tag
     end
 
     methods
         function obj = SWIPS_OK(bitfile,funcConfig)
             arguments
-                bitfile string='bitfile_git-0x0f27429b_swips.bit';%
+                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x0f27429b_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
             obj.bitfile = bitfile;
@@ -45,6 +46,8 @@ classdef SWIPS_OK < handle
 
                 % Construct FrontPanel
                 obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
+                
+%                 obj.close();
 
                 % get device number
                 n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
@@ -71,7 +74,7 @@ classdef SWIPS_OK < handle
                 end
 
                 % program the device
-                err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', obj.okfp, obj.bitfile);
+                err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', obj.okfp, char(obj.bitfile));
                 if ~strcmp(err,'ok_NoError')
                     calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
                     calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
@@ -103,15 +106,24 @@ classdef SWIPS_OK < handle
 
         function delete(obj)
             if obj.Connected
-                stop(obj.Timer);
-                delete(obj.Timer);
-                
-                calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
-                calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                obj.close
             end
         end
 
-        function congigurePPA_ok(obj, dac_table)
+        function close(obj)
+            
+            if libisloaded('okFrontPanel')
+                    calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+            end
+            
+            obj.Connected = false;
+        end 
+
+        function configurePPA_ok(obj, dac_table)
+            if nargin <2
+                dac_table = obj.dac_table;
+            end
 
             if obj.Connected
                 obj.dac_table = dac_table;
@@ -119,13 +131,9 @@ classdef SWIPS_OK < handle
             end
         end
 
-        function readData(obj)
+        function read(obj)
             if obj.Connected
-                stuff = acquirePPA_ok(obj.okfp,obj.acq_time);
-                
-                obj.lastRead('rawLCnt') = stuff(1);
-                obj.lastRead('rawUCnt') = stuff(2);
-                obj.lastRead('PPACnt') = stuff(3);
+                [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
             else
                 obj.read_nan();
             end
@@ -135,6 +143,15 @@ classdef SWIPS_OK < handle
             obj.lastRead.rawLCnt = obj.lastRead.rawLCnt*nan;
             obj.lastRead.rawUCnt = obj.lastRead.rawUCnt*nan;
             obj.lastRead.PPACnt = obj.lastRead.PPACnt*nan;
+        end
+
+        function restartTimer(obj)
+            %RESTARTTIMER Restarts timer if error
+
+        end
+
+        function stopTimer(obj)
+           
         end
     end
 end
@@ -295,4 +312,15 @@ function configurePPA_ok(okfp, DAC_table, acq_time)
 
     % Update the PPA trigger
     calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', okfp, hex2dec('40'), 2);
+end
+
+function script_dir = get_script_dir()
+% Equivalent to Python's __file__ handling
+if isdeployed
+    % Deployed apps don't have mfilename paths reliably; fallback to pwd
+    script_dir = pwd;
+else
+    script_dir = fileparts(mfilename('fullpath'));
+    if isempty(script_dir), script_dir = pwd; end
+end
 end
