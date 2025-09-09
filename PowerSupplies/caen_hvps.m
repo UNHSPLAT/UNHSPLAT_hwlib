@@ -60,15 +60,14 @@ classdef caen_hvps < handle
             %   HVPS_Value (scalar or char) or [] to omit
             %     VAL : (numerical value must have a Format compatible with resolution and range) 
 
-            tic;
+            
             cmd = HVPS_command(obj.LBus_Address,command_type, channel, parameter, value);
             resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
-            display(toc);
+            
         end
 
         function val = read(obj,~,~)
             % needs update
-            fprintf('sdfds');
 %             obj.lastRead=obj.measV(4);
             obj.lastRead=obj.getVSet(4);
             val = obj.lastRead;
