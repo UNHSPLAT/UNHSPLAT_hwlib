@@ -38,61 +38,67 @@ classdef SWIPS_OK < handle
 
         function connectDevice(obj)
             if ~obj.Connected
-                %% Configuration - Load Library and Open Device
-                % load OkLibrary
-                if ~libisloaded('okFrontPanel')
-                    loadlibrary('okFrontPanel', 'okFrontPanel.h');
-                end
+                try
+                    %% Configuration - Load Library and Open Device
+                    % load OkLibrary
+                    if ~libisloaded('okFrontPanel')
+                        loadlibrary('okFrontPanel', 'okFrontPanel.h');
+                    end
 
-                % Construct FrontPanel
-                obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
-                
-%                 obj.close();
-
-                % get device number
-                n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
-
-                if n == 0
-                    disp('Please Connect Opal Kelly Device')
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
-                    obj.Connected = false;
-                    return
-                elseif n > 1
-                    disp('Too Many Opal Kelly Devices Connected')
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
-                    obj.Connected = false;
-                    return
-                end 
-
-                err = calllib('okFrontPanel', 'okFrontPanel_OpenBySerial',obj.okfp,'');
-                if ~strcmp(err,'ok_NoError')
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
-                    disp('Error Opening FrontPanel Device')
+                    % Construct FrontPanel
+                    obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
                     
+    %                 obj.close();
+
+                    % get device number
+                    n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
+
+                    if n == 0
+                        disp('Please Connect Opal Kelly Device')
+                        calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                        obj.Connected = false;
+                        return
+                    elseif n > 1
+                        disp('Too Many Opal Kelly Devices Connected')
+                        calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                        obj.Connected = false;
+                        return
+                    end 
+
+                    err = calllib('okFrontPanel', 'okFrontPanel_OpenBySerial',obj.okfp,'');
+                    if ~strcmp(err,'ok_NoError')
+                        calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                        disp('Error Opening FrontPanel Device')
+                        
+                        obj.Connected = false;
+                        return
+                    end
+
+                    % program the device
+                    err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', obj.okfp, char(obj.bitfile));
+                    if ~strcmp(err,'ok_NoError')
+                        calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                        calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                        disp('Error Programming FrontPanel Device')
+                        
+                        obj.Connected = false;
+                        return
+                    end
+
+                    % Code Execution
+                    % Do things here.
+                    calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+
+                    git = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('20'));
+                    disp(['Git Hash: 0x',dec2hex(git,8)])
+                    obj.Connected = true;
+
+                    obj.funcConfig(obj);
+                catch
+                    disp('Error Connecting to Opal Kelly Device')
                     obj.Connected = false;
                     return
                 end
-
-                % program the device
-                err = calllib('okFrontPanel', 'okFrontPanel_ConfigureFPGA', obj.okfp, char(obj.bitfile));
-                if ~strcmp(err,'ok_NoError')
-                    calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
-                    disp('Error Programming FrontPanel Device')
-                    
-                    obj.Connected = false;
-                    return
-                end
-
-                %% Code Execution
-                % Do things here.
-                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
-
-                git = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('20'));
-                disp(['Git Hash: 0x',dec2hex(git,8)])
-                obj.Connected = true;
-
-                obj.funcConfig(obj);
             end
         end
 

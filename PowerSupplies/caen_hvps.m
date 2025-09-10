@@ -44,8 +44,18 @@ classdef caen_hvps < handle
 
         function con_stat = connectDevice(obj)
             if ~obj.Connected
-            con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
-            obj.Connected = true;
+                try
+                con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
+                display(con_stat);
+                if con_stat
+                    obj.Connected = true;
+                else 
+                    obj.Connected = false;
+                end
+                catch
+                    warning("Could not connect to CAEN HVPS");
+                    obj.Connected = false;
+                end
             end
         end
 
@@ -59,18 +69,19 @@ classdef caen_hvps < handle
             %     PAR : (see parameters tables)
             %   HVPS_Value (scalar or char) or [] to omit
             %     VAL : (numerical value must have a Format compatible with resolution and range) 
-
-            
             cmd = HVPS_command(obj.LBus_Address,command_type, channel, parameter, value);
             resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
-            
         end
 
         function val = read(obj,~,~)
-            % needs update
-%             obj.lastRead=obj.measV(4);
-            obj.lastRead=obj.getVSet(4);
-            val = obj.lastRead;
+            if obj.Connected
+                % needs update
+                obj.lastRead=obj.measV(4);
+                % obj.lastRead=obj.getVSet(4);
+                val = obj.lastRead;
+            else
+                val = nan*obj.lastRead;
+            end
         end
 
         function setVSet(obj,chn,volt) %sets the voltage for channel chn (V)
