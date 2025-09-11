@@ -157,6 +157,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 fclose(obj.hVisa);
             end
             obj.stopTimer();
+            delete(obj.Timer);
         end
         
         function initTimer(obj)

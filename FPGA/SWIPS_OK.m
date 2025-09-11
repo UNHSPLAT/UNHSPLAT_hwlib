@@ -14,7 +14,7 @@ classdef SWIPS_OK < handle
     end
 
     properties (SetObservable) 
-        Timer=timer("TimerFcn",@(x,~,~) 1)%
+        Timer=timer("TimerFcn",@(x,~,~) 1,'Name','opal_kelly fake')%
         Connected = false%
         lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
         funcConfig
@@ -114,6 +114,7 @@ classdef SWIPS_OK < handle
             if obj.Connected
                 obj.close
             end
+            delete(obj.Timer);
         end
 
         function close(obj)
