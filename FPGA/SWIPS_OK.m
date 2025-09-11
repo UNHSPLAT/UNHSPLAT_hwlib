@@ -14,7 +14,7 @@ classdef SWIPS_OK < handle
     end
 
     properties (SetObservable) 
-        Timer=timer("TimerFcn",@(x,~,~) 1,'Name','opal_kelly fake')%
+        Timer=timer%
         Connected = false%
         lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
         funcConfig
@@ -34,6 +34,13 @@ classdef SWIPS_OK < handle
             end
             obj.bitfile = bitfile;
             obj.funcConfig = funcConfig;
+            obj.Timer = timer('Period',1,... %period
+                      'ExecutionMode','singleShot',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
+                      'BusyMode','drop',... %{drop, error, queue}
+                      'StartDelay',0,...
+                      'TimerFcn',@(x,~,~) 1, ...
+                        'Name','opal_kellyTimerFake' ...
+                      );
         end
 
         function connectDevice(obj)
