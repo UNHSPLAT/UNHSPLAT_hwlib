@@ -28,11 +28,14 @@ classdef caen_hvps < handle
     end
 
     methods
-        function obj = caen_hvps(address,funcConfig)
+        function obj = caen_hvps(address,funcConfig,LBus_Address)
             arguments
                 address string='';%
                 funcConfig = @(x) x;
+                LBus_Address = 2;
             end
+            obj.funcConfig = funcConfig;
+            obj.LBus_Address = LBus_Address;
 %              initialize timer to grab position data at some cadence
             obj.Timer =  timer('Period',5,... %period
                       'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
@@ -77,7 +80,7 @@ classdef caen_hvps < handle
             if obj.Connected
                 % needs update
                 obj.lastRead=obj.measV(4);
-                % obj.lastRead=obj.getVSet(4);
+%                 obj.lastRead=obj.getVSet(4);
                 val = obj.lastRead;
             else
                 val = nan*obj.lastRead;
@@ -306,7 +309,7 @@ try
     S = cfg.(hvps_section);
 
     % Match Python keys (including the 'buad_rate' typo)
-    port      = get_str(S, 'port', 'COM6');
+    port      = get_str(S, 'port', 'COM5');
     baudrate  = get_num(S, 'buad_rate', 9600);
     bytesizeS = get_str(S, 'bytesize', 'EIGHTBITS');  % FIVEBITS..EIGHTBITS
     parityS   = get_str(S, 'parity',   'PARITY_NONE');% PARITY_NONE, _EVEN, _ODD, _MARK, _SPACE
