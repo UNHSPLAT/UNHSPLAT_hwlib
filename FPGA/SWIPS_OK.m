@@ -34,12 +34,11 @@ classdef SWIPS_OK < handle
             end
             obj.bitfile = bitfile;
             obj.funcConfig = funcConfig;
-            obj.Timer = timer('Period',1,... %period
-                      'ExecutionMode','singleShot',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
+            obj.Timer =  timer('Period',10,... %period
+                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
                       'BusyMode','drop',... %{drop, error, queue}
                       'StartDelay',0,...
-                      'TimerFcn',@(x,~,~) 1, ...
-                        'Name','opal_kellyTimerFake' ...
+                      'TimerFcn',@obj.read ...
                       );
         end
 
@@ -145,9 +144,10 @@ classdef SWIPS_OK < handle
             end
         end
 
-        function read(obj)
+        function read(obj,~,~)
             if obj.Connected
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
+                display(obj.lastRead);
             else
                 obj.read_nan();
             end
@@ -162,10 +162,22 @@ classdef SWIPS_OK < handle
         function restartTimer(obj)
             %RESTARTTIMER Restarts timer if error
 
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
+
+            % Restart timer
+            if obj.Connected
+                start(obj.Timer);
+            end
         end
 
         function stopTimer(obj)
-           
+            % Stop timer if still running
+            if strcmp(obj.Timer.Running,'on')
+                stop(obj.Timer);
+            end
         end
     end
 end
