@@ -19,6 +19,7 @@ classdef leyboldCenter2 < hwDevice
 
             obj.hVisa.BaudRate = 9600;
             obj.hVisa.Terminator = 'CR';
+            obj.lastRead = [nan,nan];
         end
         
         function dataOut = leyboldRW(obj,inStr)

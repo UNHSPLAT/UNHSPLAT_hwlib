@@ -27,6 +27,7 @@ classdef keysightE36313A < powerSupply
             end
             obj@powerSupply(address,funcConfig);
             %obj.getAllSettings;
+            obj.lastRead = [nan,nan,nan];
         end
         
         function setVSet(obj,volt,output)

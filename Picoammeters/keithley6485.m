@@ -18,6 +18,7 @@ classdef keithley6485 < hwDevice
                 funcConfig = @(x) x;
             end
             obj@hwDevice(address,funcConfig);
+            obj.lastRead = nan;
         end
 
         function dataOut = readDev(obj)

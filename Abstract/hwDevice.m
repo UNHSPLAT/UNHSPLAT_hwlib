@@ -79,7 +79,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     obj.Connected = true;
 %                     pause(1)
                     obj.funcConfig(obj);
-                    obj.restartTimer();
                 catch
                     obj.Connected = false;
                     obj.stopTimer();
@@ -132,7 +131,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             if obj.Connected
                 obj.lastRead = obj.readFunc(obj);
             else
-                obj.lastRead = nan;
+                obj.lastRead = obj.lastRead*nan;
             end
         end
 
@@ -158,6 +157,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 fclose(obj.hVisa);
             end
             obj.stopTimer();
+            delete(obj.Timer);
         end
         
         function initTimer(obj)
