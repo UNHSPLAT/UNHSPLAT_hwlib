@@ -20,7 +20,9 @@ classdef SWIPS_OK < handle
         funcConfig
 
         bitfile string   % fpga bit file
-        dac_table = ones(1,16); % default DAC table
+        dac_table = ones(1,16)*60; % default DAC table
+                                   % default DAC table @2000 V [68,60,60,60, 60,60,60,60, 60,60,60,61, 60,60,60,76]
+                                   % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
         Tag
