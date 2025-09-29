@@ -28,14 +28,16 @@ classdef caen_hvps < handle
     end
 
     methods
-        function obj = caen_hvps(address,funcConfig,LBus_Address)
+        function obj = caen_hvps(address,funcConfig,LBus_Address,config_filename)
             arguments
                 address string='';%
                 funcConfig = @(x) x;
                 LBus_Address = 2;
+                config_filename = 'config_caenPS.ini';
             end
             obj.funcConfig = funcConfig;
             obj.LBus_Address = LBus_Address;
+            obj.equip_config_filename = config_filename;
 %              initialize timer to grab position data at some cadence
             obj.Timer =  timer('Period',5,... %period
                       'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
@@ -88,7 +90,10 @@ classdef caen_hvps < handle
         end
 
         function setVSet(obj,chn,volt) %sets the voltage for channel chn (V)
-            resp = command(obj,"SET",chn,"VSET",volt);
+            if volt < 0
+                warning("Voltage set by magnitude so must be positive, setting to abs(volt)");
+            end
+            resp = command(obj,"SET",chn,"VSET",abs(volt));
         end
 
         function volt = getVSet(obj,chn) %returns value of VSET (voltage setting, not actual monitored voltage) in channels 0-3 (V)
