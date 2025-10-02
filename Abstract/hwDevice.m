@@ -156,6 +156,9 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             if strcmp(obj.hVisa.Status,'open')
                 fclose(obj.hVisa);
             end
+            if ~isempty(obj.hVisa)
+                delete(obj.hVisa);
+            end
             obj.stopTimer();
             delete(obj.Timer);
         end
