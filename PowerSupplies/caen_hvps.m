@@ -4,7 +4,7 @@ classdef caen_hvps < handle
 %         Tag string =""%
         textLabel string = ""% 
         unit string = ""%
-        address string = ""%
+        Address string = ""%
         asmInfo %
     end
 
@@ -28,9 +28,9 @@ classdef caen_hvps < handle
     end
 
     methods
-        function obj = caen_hvps(address,funcConfig,LBus_Address,config_filename)
+        function obj = caen_hvps(Address,funcConfig,LBus_Address,config_filename)
             arguments
-                address string='';%
+                Address string='';%
                 funcConfig = @(x) x;
                 LBus_Address = 2;
                 config_filename = 'config_caenPS.ini';

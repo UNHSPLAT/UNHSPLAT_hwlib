@@ -4,7 +4,7 @@ classdef SWIPS_OK < handle
 %         Tag string =""%
         textLabel string = ""% 
         unit string = ""%
-        address string = ""%
+        Address string = ""%
         asmInfo %
     end
 
@@ -263,7 +263,7 @@ function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
     
     for i = 0:15
 
-        ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('22')+i);       % PPA map to address x"22" - x"31"
+        ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
         
         if(i==0) % Anode 0 - raws
             rawLCnt(0+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('39'));
@@ -278,7 +278,7 @@ function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
             rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('36'));
             rawUCnt(4) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('32'));
         else % All other Anodes - raws
-            if(i<8) % mapping to the correct address
+            if(i<8) % mapping to the correct Address
                 raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-1)/2));
             else
                 raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-3)/2));
