@@ -29,6 +29,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         refreshRate = 4 %
         Timer = timer
         Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
+        dataOut
     end
 
     methods
@@ -111,7 +112,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                           dataOut = fscanf(obj.hVisa);
                       end
     
-                      if ~deviceAlreadyOpen
+                      if strcmp(obj.hVisa.Status,'open')
                           fclose(obj.hVisa);
                       end
                       return
@@ -127,6 +128,48 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             dataOut = "nan";
         end
         
+        function devRW_async(obj,dataIn,funcAsync)
+            if obj.Connected
+                trynum = 0;
+                while trynum <3
+                    try
+                      if strcmp(obj.hVisa.Status,'open')
+                          deviceAlreadyOpen = true;
+                      else
+                          deviceAlreadyOpen = false;
+                      end
+    
+                      if ~deviceAlreadyOpen
+                          fopen(obj.hVisa);
+                      end
+
+                      
+                      fprintf(obj.hVisa,dataIn);
+
+%                       obj.hVisa.BytesAvailableFcnMode = "byte";
+%                       obj.hVisa.BytesAvailableFcnCount = 100;
+                      
+                      readasync(obj.hVisa);
+
+                      obj.hVisa.BytesAvailableFcn = funcAsync;
+                      
+%                       if strcmp(obj.hVisa.Status,'open')
+%                           fclose(obj.hVisa);
+%                       end
+
+                      return
+                    catch
+                        trynum = trynum+1;
+                        fprintf("%s:communication attempt %d failed\n",obj.Tag,trynum);
+                    end
+                end
+                obj.Connected = false;
+                fclose(obj.hVisa);
+                obj.stopTimer();
+            end
+            dataOut = "nan";
+        end
+
         function read(obj,~,~) 
             if obj.Connected
                 obj.lastRead = obj.readFunc(obj);
