@@ -82,21 +82,21 @@ classdef caen_hvps < handle
             if obj.Connected
                 % needs update
                 obj.lastRead=obj.measV(4);
-%                 obj.lastRead=obj.getVSet(4);
+%                 obj.lastRead=obj.getVset(4);
                 val = obj.lastRead;
             else
                 val = nan*obj.lastRead;
             end
         end
 
-        function setVSet(obj,chn,volt) %sets the voltage for channel chn (V)
+        function setVset(obj,chn,volt) %sets the voltage for channel chn (V)
             if volt < 0
                 warning("Voltage set by magnitude so must be positive, setting to abs(volt)");
             end
             resp = command(obj,"SET",chn,"VSET",abs(volt));
         end
 
-        function volt = getVSet(obj,chn) %returns value of VSET (voltage setting, not actual monitored voltage) in channels 0-3 (V)
+        function volt = getVset(obj,chn) %returns value of VSET (voltage setting, not actual monitored voltage) in channels 0-3 (V)
             resp = command(obj,"MON",chn,"VSET",[]);
             dum  = extractNumFromStr(resp);
             if chn == 4 volt = dum(2:5); else volt = dum(2); end;
@@ -108,11 +108,11 @@ classdef caen_hvps < handle
             if chn == 4 volt = dum(2:5); else volt = dum(2); end
         end
 
-        function setISet(obj,chn,curr) %sets the trip current threshold (uA)
+        function setIset(obj,chn,curr) %sets the trip current threshold (uA)
             resp = command(obj,"SET",chn,"ISET",curr);
         end
 
-        function curr = getISet(obj,chn) %returns value of the trip current threshold values (uA)
+        function curr = getIset(obj,chn) %returns value of the trip current threshold values (uA)
             resp = command(obj,"MON",chn,"ISET",[]);
             dum  = extractNumFromStr(resp);
             if chn == 4 curr = dum(2:5); else curr = dum(2); end
