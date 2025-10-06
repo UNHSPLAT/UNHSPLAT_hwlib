@@ -78,7 +78,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                     % Initialize instrument object
                     obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
                     obj.Connected = true;
-%                     pause(1)
                     obj.funcConfig(obj);
                 catch
                     obj.Connected = false;
@@ -128,7 +127,11 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             dataOut = "nan";
         end
         
-        function devRW_async(obj,dataIn,funcAsync)
+        function devRW_async(obj,dataIn,readFunc)
+            if nargin < 3
+                readFunc = @obj.devR_async;
+            end
+            
             if obj.Connected
                 trynum = 0;
                 while trynum <3
@@ -143,21 +146,14 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                           fopen(obj.hVisa);
                       end
 
-                      
-                      fprintf(obj.hVisa,dataIn);
-
-%                       obj.hVisa.BytesAvailableFcnMode = "byte";
-%                       obj.hVisa.BytesAvailableFcnCount = 100;
-                      
-                      readasync(obj.hVisa);
-
-                      obj.hVisa.BytesAvailableFcn = funcAsync;
-                      
-%                       if strcmp(obj.hVisa.Status,'open')
-%                           fclose(obj.hVisa);
-%                       end
-
-                      return
+                      if strcmp(obj.hVisa.TransferStatus,'idle')
+                        fprintf(obj.hVisa,dataIn);
+                        readasync(obj.hVisa);
+                        obj.hVisa.BytesAvailableFcn = readFunc;
+                        return
+                      else
+                        error('Device busy');
+                      end
                     catch
                         trynum = trynum+1;
                         fprintf("%s:communication attempt %d failed\n",obj.Tag,trynum);
@@ -167,7 +163,11 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 fclose(obj.hVisa);
                 obj.stopTimer();
             end
-            dataOut = "nan";
+            obj.dataOut = "nan";
+        end
+
+        function devR_async(obj,~,~)
+            obj.dataOut = fscanf(obj.hVisa);
         end
 
         function read(obj,~,~) 
@@ -175,23 +175,6 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 obj.lastRead = obj.readFunc(obj);
             else
                 obj.lastRead = obj.lastRead*nan;
-            end
-        end
-
-        function readParf(obj,pool) 
-            if obj.Connected
-                obj.futureReader = parfeval(pool,@obj.readFunc,1,obj);
-                obj.lastReader = afterAll(obj.futureReader,@(~)obj.evalRead(),0);
-            else
-                obj.lastRead = nan;
-            end
-        end
-
-        function evalRead(obj)
-            try
-                obj.lastRead = fetchOutputs(obj.futureReader);
-            catch
-                obj.lastRead = nan;
             end
         end
 
