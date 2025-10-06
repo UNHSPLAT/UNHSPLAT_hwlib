@@ -38,6 +38,17 @@ classdef srsHVPS < powerSupply
             
         end
 
+        function measVasync(obj)
+            obj.devRW_async('VSET?',@obj.readVasync);
+        end
+
+        function readVasync(obj,~,~,~,~)
+            dataOut = fscanf(obj.hVisa);
+            display(dataOut);
+            obj.lastRead = str2double(strtrim(dataOut));
+            
+        end
+
         function setISet(obj,curr)
 
             obj.devRW(['ILIM',num2str(curr)]);
