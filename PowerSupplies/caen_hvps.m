@@ -17,6 +17,7 @@ classdef caen_hvps < handle
         Timer=timer%
         Connected = false
         lastRead = [nan,nan,nan,nan];%
+        lastIRead = [nan,nan,nan,nan];%
         funcConfig
 
         equip_config_folder string = "" % folder containing config file
@@ -82,6 +83,7 @@ classdef caen_hvps < handle
             if obj.Connected
                 % needs update
                 obj.lastRead=obj.measV(4);
+                obj.lastIRead = obj.measI(4);
 %                 obj.lastRead=obj.getVset(4);
                 val = obj.lastRead;
             else
