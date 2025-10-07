@@ -30,6 +30,8 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         Timer = timer
         Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
         dataOut
+
+        read_delay = nan
     end
 
     methods
@@ -76,7 +78,16 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             if ~obj.Connected     
                 try
                     % Initialize instrument object
-                    obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
+                    if isempty(obj.hVisa)
+                        obj.hVisa = visa('ni',obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
+                    end
+                    if ~strcmp(obj.hVisa.Status,'open')
+                          fopen(obj.hVisa);
+                    end
+                    clrdevice(obj.hVisa);
+                    fclose(obj.hVisa);
+                        
+                    
                     obj.Connected = true;
                     obj.funcConfig(obj);
                 catch
@@ -100,21 +111,30 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       if ~deviceAlreadyOpen
                           fopen(obj.hVisa);
                       end
-    
-                      fprintf(obj.hVisa,dataIn);
-    
-                      if nargout > 0
-                          readasync(obj.hVisa);
-                          while ~strcmp(obj.hVisa.TransferStatus,'idle')
-                              pause(0.1);
+
+                      if strcmp(obj.hVisa.TransferStatus,'idle')
+                          
+                          fprintf(obj.hVisa,dataIn);
+        
+                          if nargout > 0
+                              readasync(obj.hVisa);
+                              while ~strcmp(obj.hVisa.TransferStatus,'idle')
+                                  pause(0.1);
+                              end
+                              dataOut = fscanf(obj.hVisa);
                           end
-                          dataOut = fscanf(obj.hVisa);
+        
+                          if strcmp(obj.hVisa.Status,'open')
+                              flushoutput(obj.hVisa);
+                              flushinput(obj.hVisa);
+                              fclose(obj.hVisa);
+                          end
+                          return
+                      else
+                          trynum = trynum+1;
+                          fprintf("%s:communication attempt %d failed, Visa Busy\n",obj.Tag,trynum);
+                          pause(.1);
                       end
-    
-                      if strcmp(obj.hVisa.Status,'open')
-                          fclose(obj.hVisa);
-                      end
-                      return
                     catch
                         trynum = trynum+1;
                         fprintf("%s:communication attempt %d failed\n",obj.Tag,trynum);
@@ -147,12 +167,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       end
 
                       if strcmp(obj.hVisa.TransferStatus,'idle')
-                        fprintf(obj.hVisa,dataIn);
-                        readasync(obj.hVisa);
-                        obj.hVisa.BytesAvailableFcn = readFunc;
+                            flushoutput(obj.hVisa);
+                            flushinput(obj.hVisa);
+                            fprintf(obj.hVisa,dataIn);
+                            readasync(obj.hVisa);
+                            obj.hVisa.BytesAvailableFcn = readFunc;
                         return
                       else
-                        error('Device busy');
+                        pause(.1);
+                          fprintf('Device busy\n');
                       end
                     catch
                         trynum = trynum+1;
@@ -172,9 +195,17 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
         function read(obj,~,~) 
             if obj.Connected
-                obj.lastRead = obj.readFunc(obj);
+                tic;
+                % execute read function, assign output to lastRead if output exists
+                if nargout(obj.readFunc)>0
+                    obj.lastRead = obj.readFunc(obj);
+                else
+                    obj.readFunc(obj);
+                end
+                obj.read_delay = toc;
             else
                 obj.lastRead = obj.lastRead*nan;
+                obj.read_delay = nan;
             end
         end
 

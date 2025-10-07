@@ -26,6 +26,8 @@ classdef caen_hvps < handle
         port_key 
         LBus_Address = 2
         Tag
+
+        read_delay = nan
     end
 
     methods
@@ -82,8 +84,10 @@ classdef caen_hvps < handle
         function val = read(obj,~,~)
             if obj.Connected
                 % needs update
+                tic;
                 obj.lastRead=obj.measV(4);
                 obj.lastIRead = obj.measI(4);
+                obj.read_delay = toc;
 %                 obj.lastRead=obj.getVset(4);
                 val = obj.lastRead;
             else

@@ -56,8 +56,14 @@ classdef srsHVPS < powerSupply
             function readVasync(~,~)
                 dataOut = fscanf(obj.hVisa);
                 obj.dataOut = dataOut;
-                display(dataOut);
-                obj.Vmeas = str2double(strtrim(dataOut));
+                obj.lastRead = str2double(strtrim(dataOut));
+                
+                obj.hVisa.BytesAvailableFcn = @obj.devR_async;
+                if strcmp(obj.hVisa.Status,'open')
+                    flushoutput(obj.hVisa);
+                    flushinput(obj.hVisa);
+                    fclose(obj.hVisa);
+                end
             end
             obj.devRW_async('VOUT?',@readVasync);
         end
