@@ -26,6 +26,7 @@ classdef SWIPS_OK < handle
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
         Tag
+        acq_timer = timer;
     end
 
     methods
@@ -143,6 +144,88 @@ classdef SWIPS_OK < handle
             if obj.Connected
                 obj.dac_table = dac_table;
                 configurePPA_ok(obj.okfp, dac_table, obj.acq_time); % 1 for 10 sec acquisition time
+            end
+        end
+
+        function askPPA_ok(obj)
+            % acquirePPA_ok - Rev 0, SXL, 8/13/2025
+            %  "okfp": opal kelly object
+            %  "acq_time": int where '0' correspond to 1 sec acquisition time and '1' to
+            %  10 sec
+            %  "rawLCnt": 16x1 double holding the values of the raw count; note that
+            %  Anode 0,7,8,15 are 32 bit while the others are 16 bit
+            %  "rawUCnt": 4x1 double holding the values of the raw count; they
+            %  correspond to Anode 0,7,8,15; all values are 32 bit
+            %  "ppACnt": 16x1 double holding the values of the ppa count (divided by 2); 
+            %  all values are 32 bit
+            
+
+            % Clear Counters
+            if obj.Connected
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 2);  % Clear PPA Counters
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 3);  % Clear Upper Raw Counters
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
+
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
+
+                % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
+                if(obj.acq_time == 0)
+                    pause_t = 1+1;
+                elseif(obj.acq_time == 1)
+                    pause_t = 10+1;
+                end
+                obj.acq_timer = timer('StartDelay', pause_t,...
+                                        'ExecutionMode', 'singleShot',...
+                                        'TimerFcn', @(~,~) obj.listenPPA_ok(),...
+                                        'BusyMode','queue',...
+                                        'StopFcn',@(~,~) delete(obj.acq_timer));
+                start(obj.acq_timer);
+            else
+                obj.read_nan();
+            end
+        end
+
+        function listenPPA_ok(obj)
+             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
+            
+            rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
+            rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
+            ppaCnt = zeros(1,16);       % empty array for ppa count
+            calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);       % get the final wireout (count values)
+
+            for i = 0:15
+                ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
+
+                if(i==0) % Anode 0 - raws
+                    rawLCnt(0+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('39'));
+                    rawUCnt(1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('35'));
+                elseif(i==7)  % Anode 7 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('38'));
+                    rawUCnt(2) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('34'));
+                elseif(i==8)  % Anode 8 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('37'));
+                    rawUCnt(3) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('33'));
+                elseif(i==15)  % Anode 15 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('36'));
+                    rawUCnt(4) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('32'));
+                else % All other Anodes - raws
+                    if(i<8) % mapping to the correct Address
+                        raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('3F')-floor((i-1)/2));
+                    else
+                        raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('3F')-floor((i-3)/2));
+                    end
+
+                    if(mod(i,2)) % odd # anode (apply mask)
+                        rawLCnt(i+1) = bitand(raw, hex2dec('ffff'));
+                    else % even # anode (apply mask)
+                        rawLCnt(i+1) = bitand(raw, hex2dec('ffff0000')) / 2^16;
+                    end
+                end
+                obj.lastRead.rawLCnt = rawLCnt;
+                obj.lastRead.rawUCnt = rawUCnt;
+                obj.lastRead.PPACnt = ppaCnt;
+
+                %disp(['Anode ' num2str(i) ': ' num2str(rawLCnt(i+1)) ' | ' num2str(ppaCnt(i+1)/2)]);
             end
         end
 
