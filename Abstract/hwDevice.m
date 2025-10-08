@@ -24,13 +24,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         Connected = false %connection status of hwDevice
         readFunc = @(x) nan%
         lastRead %
-        lastReader %
-        futureReader%
         refreshRate = 4 %
         Timer = timer
         Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
         dataOut
-
         read_delay = nan
     end
 

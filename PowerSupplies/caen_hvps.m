@@ -20,6 +20,8 @@ classdef caen_hvps < handle
         lastIRead = [nan,nan,nan,nan];%
         funcConfig
 
+        readFunc = @(x) nan;
+
         equip_config_folder string = "" % folder containing config file
         equip_config_filename string = 'config_caenPS.ini'
         hvps_section string = 'HVPS'
@@ -48,6 +50,7 @@ classdef caen_hvps < handle
                       'StartDelay',0,...
                       'TimerFcn',@obj.read ...
                       );
+            obj.readFunc = @obj.getVals;
         end
 
         function con_stat = connectDevice(obj)
@@ -81,18 +84,26 @@ classdef caen_hvps < handle
             resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
         end
 
-        function val = read(obj,~,~)
+        function read(obj,~,~) 
             if obj.Connected
-                % needs update
                 tic;
+                % execute read function, assign output to lastRead if output exists
+                if nargout(obj.readFunc)>0
+                    obj.lastRead = obj.readFunc(obj);
+                else
+                    obj.readFunc(obj);
+                end
+                obj.read_delay = toc;
+            else
+                obj.lastRead = obj.lastRead*nan;
+                obj.read_delay = nan;
+            end
+        end
+
+        function getVals(obj,~,~)
                 obj.lastRead=obj.measV(4);
                 obj.lastIRead = obj.measI(4);
                 obj.read_delay = toc;
-%                 obj.lastRead=obj.getVset(4);
-                val = obj.lastRead;
-            else
-                val = nan*obj.lastRead;
-            end
         end
 
         function setVset(obj,chn,volt) %sets the voltage for channel chn (V)
