@@ -7,6 +7,12 @@ classdef leyboldGraphix3 < hwDevice
         ModelNum string = "Graphix 3"
     end
     
+    properties (Access = private)
+        pressureListener
+        currentSensorIndex
+        sensorList
+    end
+    
     methods
         function obj = leyboldGraphix3(address,funcConfig)
             %LEYBOLDGRAPHIX3 Construct an instance of this class
@@ -41,7 +47,6 @@ classdef leyboldGraphix3 < hwDevice
         end
 
         function pressure = readPressure(obj,sensorNum)
-
             if ~exist('sensorNum','var')
                 sensorNum = 1:3;
             end
@@ -54,7 +59,56 @@ classdef leyboldGraphix3 < hwDevice
                     %warning("leyboldGraphix3:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
                 end
             end
+        end
 
+        function readPressure_async(obj, sensorNum)
+            % Initialize or validate sensor numbers
+            if nargin < 2 || isempty(sensorNum)
+                sensorNum = 1:3;
+            end
+            
+            % Initialize pressure array in object for async collection
+            obj.lastRead = nan(1, length(sensorNum));
+            
+            % Store sensor list and current index in object for async use
+            obj.sensorList = sensorNum;
+            obj.currentSensorIndex = 1;
+            
+            % Create listener for data collection
+            obj.pressureListener = addlistener(obj, 'dataOut', 'PostSet', ...
+                @(src,evt) handlePressureResponse(obj, src, evt));
+            
+            % Start first sensor read
+            sendStr = [char(15), num2str(sensorNum(1)), char(59), '29'];
+            sendStr = obj.leyboldCRC(sendStr);
+            obj.devRW_async(sendStr);
+            
+            function handlePressureResponse(obj, ~, ~)
+                % Process current sensor's data
+                try
+                    pressure = str2double(strtrim(obj.dataOut(2:end-2)));
+                    obj.lastRead(obj.currentSensorIndex) = pressure;
+                catch
+                    obj.lastRead(obj.currentSensorIndex) = nan;
+                end
+                
+                % Move to next sensor
+                obj.currentSensorIndex = obj.currentSensorIndex + 1;
+                
+                % If more sensors to read, continue
+                if obj.currentSensorIndex <= length(obj.sensorList)
+                    % Send next sensor read command
+                    sendStr = [char(15), num2str(obj.sensorList(obj.currentSensorIndex)), char(59), '29'];
+                    sendStr = obj.leyboldCRC(sendStr);
+                    obj.devRW_async(sendStr);
+                else
+                    % Clean up when done
+                    delete(obj.pressureListener);
+                    obj.pressureListener = [];
+                    obj.currentSensorIndex = [];
+                    obj.sensorList = [];
+                end
+            end
         end
     end
 
