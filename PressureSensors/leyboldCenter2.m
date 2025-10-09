@@ -23,7 +23,6 @@ classdef leyboldCenter2 < hwDevice
         end
         
         function dataOut = leyboldRW(obj,inStr)
-
             retMsg = obj.devRW(inStr);
 
             if retMsg(1) == 6
@@ -31,7 +30,6 @@ classdef leyboldCenter2 < hwDevice
             else
                 error("leyboldCenter2:notAcknowledged","Communication error! Message not acknowledged by controller...");
             end
-
         end
 
         function pressure = readPressure(obj,sensorNum)
@@ -52,6 +50,46 @@ classdef leyboldCenter2 < hwDevice
                 end
             end
 
+        end
+        
+        function readPressure_async(obj, sensorNum)
+            inStr = ['PR',num2str(sensorNum)];
+            % Add listener for first response
+            firstResponseListener = addlistener(obj, 'dataOut', 'PostSet', ...
+                @(src,evt) handleFirstResponse(obj, src, evt));
+            
+            % Start first async read
+            obj.devRW_async(inStr);
+            
+            function handleFirstResponse(obj, ~, evt)
+                % Remove the first listener
+                delete(firstResponseListener);
+                
+                % Check response
+                if obj.dataOut(1) == 6
+                    % Add listener for second response
+                    secondResponseListener = addlistener(obj, 'dataOut', 'PostSet', ...
+                        @(src,evt) handleSecondResponse(obj, src, evt));
+                    
+                    % Send ENQ for data
+                    obj.devRW_async(char(5));
+                else
+                    error("leyboldCenter2:notAcknowledged","Communication error! Message not acknowledged by controller...");
+                end
+            end
+            
+            function handleSecondResponse(obj, ~, evt)
+                % Remove the second listener
+                delete(secondResponseListener);
+                tokes = regexp(strtrim(dataOut),char(32),'split');
+                if str2double(tokes{1}) > 2
+                    obj.lastRead(sensorNum) = NaN;
+                    %warning("leyboldCenter2:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
+                else
+                    obj.lastRead(sensorNum) = str2double(tokes{2});
+                end
+                % Data is now in obj.dataOut
+            end
         end
     end
 end
