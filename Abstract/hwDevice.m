@@ -117,8 +117,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                               readasync(obj.hVisa);
                               while ~strcmp(obj.hVisa.TransferStatus,'idle')
                                   pause(0.1);
+                                  drawnow;
                               end
                               dataOut = fscanf(obj.hVisa);
+                              drawnow;
                           end
         
                           if strcmp(obj.hVisa.Status,'open')
@@ -172,7 +174,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                         return
                       else
                         pause(.1);
-                          fprintf('Device busy\n');
+                        fprintf('Device busy\n');
                       end
                     catch
                         trynum = trynum+1;
@@ -188,6 +190,12 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
         function devR_async(obj,~,~)
             obj.dataOut = fscanf(obj.hVisa);
+
+            if strcmp(obj.hVisa.Status,'open')
+                flushoutput(obj.hVisa);
+                flushinput(obj.hVisa);
+                fclose(obj.hVisa);
+            end
         end
 
         function read(obj,~,~) 
@@ -199,6 +207,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 else
                     obj.readFunc(obj);
                 end
+                drawnow;
                 obj.read_delay = toc;
             else
                 obj.lastRead = obj.lastRead*nan;
