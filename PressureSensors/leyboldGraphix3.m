@@ -32,7 +32,6 @@ classdef leyboldGraphix3 < hwDevice
 
             sendStr = [char(15),num2str(paramGrp),char(59),num2str(paramNum)];
             sendStr = obj.leyboldCRC(sendStr);
-
             dataOut = obj.devRW(sendStr);
 
         end
@@ -54,7 +53,8 @@ classdef leyboldGraphix3 < hwDevice
             pressure = zeros(1,length(sensorNum));
             for iS = 1:length(sensorNum)
                 dataOut = obj.leyboldRead(sensorNum(iS),29);
-                pressure(iS) = str2double(strtrim(dataOut(2:end-2)));
+                press = str2double(strtrim(dataOut(2:end-2)));
+                pressure(iS) = press;
                 if isnan(pressure(iS))
                     %warning("leyboldGraphix3:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
                 end
@@ -64,7 +64,7 @@ classdef leyboldGraphix3 < hwDevice
         function readPressure_async(obj, sensorNum)
             % Initialize or validate sensor numbers
             if nargin < 2 || isempty(sensorNum)
-                sensorNum = 1:3;
+                sensorNum = 1;
             end
             
             % Initialize pressure array in object for async collection
@@ -72,15 +72,14 @@ classdef leyboldGraphix3 < hwDevice
             
             % Store sensor list and current index in object for async use
             obj.sensorList = sensorNum;
-            obj.currentSensorIndex = 1;
+            obj.currentSensorIndex = sensorNum;
             
             % Create listener for data collection
             obj.pressureListener = addlistener(obj, 'dataOut', 'PostSet', ...
                 @(src,evt) handlePressureResponse(obj, src, evt));
             
             % Start first sensor read
-            sendStr = [char(15), num2str(sensorNum(1)), char(59), '29'];
-            sendStr = obj.leyboldCRC(sendStr);
+            sendStr = obj.leyboldCRC([char(15), num2str(sensorNum(1)), char(59), num2str(29)]);
             obj.devRW_async(sendStr);
             
             function handlePressureResponse(obj, ~, ~)
@@ -88,26 +87,15 @@ classdef leyboldGraphix3 < hwDevice
                 try
                     pressure = str2double(strtrim(obj.dataOut(2:end-2)));
                     obj.lastRead(obj.currentSensorIndex) = pressure;
+                    display(pressure);
                 catch
                     obj.lastRead(obj.currentSensorIndex) = nan;
                 end
-                
-                % Move to next sensor
-                obj.currentSensorIndex = obj.currentSensorIndex + 1;
-                
-                % If more sensors to read, continue
-                if obj.currentSensorIndex <= length(obj.sensorList)
-                    % Send next sensor read command
-                    sendStr = [char(15), num2str(obj.sensorList(obj.currentSensorIndex)), char(59), '29'];
-                    sendStr = obj.leyboldCRC(sendStr);
-                    obj.devRW_async(sendStr);
-                else
-                    % Clean up when done
-                    delete(obj.pressureListener);
-                    obj.pressureListener = [];
-                    obj.currentSensorIndex = [];
-                    obj.sensorList = [];
-                end
+                % Clean up when done
+                delete(obj.pressureListener);
+                obj.pressureListener = [];
+                obj.currentSensorIndex = [];
+                obj.sensorList = [];
             end
         end
     end

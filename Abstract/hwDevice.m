@@ -110,7 +110,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       end
 
                       if strcmp(obj.hVisa.TransferStatus,'idle')
-                          
+                          obj.hVisa.BytesAvailableFcn =@(~,~) nan;
                           fprintf(obj.hVisa,dataIn);
         
                           if nargout > 0
@@ -166,11 +166,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       end
 
                       if strcmp(obj.hVisa.TransferStatus,'idle')
-                            flushoutput(obj.hVisa);
-                            flushinput(obj.hVisa);
                             fprintf(obj.hVisa,dataIn);
-                            readasync(obj.hVisa);
+
                             obj.hVisa.BytesAvailableFcn = readFunc;
+                            readasync(obj.hVisa);
                         return
                       else
                         pause(.1);
@@ -190,12 +189,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
         function devR_async(obj,~,~)
             obj.dataOut = fscanf(obj.hVisa);
-
-            if strcmp(obj.hVisa.Status,'open')
-                flushoutput(obj.hVisa);
-                flushinput(obj.hVisa);
-                fclose(obj.hVisa);
-            end
+            obj.hVisa.BytesAvailableFcn = @(~,~) nan;
+            flushoutput(obj.hVisa);
+            flushinput(obj.hVisa);
+            fclose(obj.hVisa);
         end
 
         function read(obj,~,~) 
