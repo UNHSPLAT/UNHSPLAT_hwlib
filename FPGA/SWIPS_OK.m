@@ -17,6 +17,7 @@ classdef SWIPS_OK < handle
         Timer=timer%
         Connected = false%
         lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
+        read_delay = nan;
         funcConfig
 
         bitfile string   % fpga bit file
@@ -221,18 +222,19 @@ classdef SWIPS_OK < handle
                         rawLCnt(i+1) = bitand(raw, hex2dec('ffff0000')) / 2^16;
                     end
                 end
-                obj.lastRead.rawLCnt = rawLCnt;
-                obj.lastRead.rawUCnt = rawUCnt;
-                obj.lastRead.PPACnt = ppaCnt;
-
-                %disp(['Anode ' num2str(i) ': ' num2str(rawLCnt(i+1)) ' | ' num2str(ppaCnt(i+1)/2)]);
+%                 disp(['Anode ' num2str(i) ': ' num2str(rawLCnt(i+1)) ' | ' num2str(ppaCnt(i+1)/2)]);
             end
+            obj.lastRead.rawLCnt = rawLCnt;
+            obj.lastRead.rawUCnt = rawUCnt;
+            obj.lastRead.PPACnt = ppaCnt;
         end
 
         function read(obj,~,~)
             if obj.Connected
+                tic;
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
                 display(obj.lastRead);
+                obj.read_delay = toc;
             else
                 obj.read_nan();
             end
