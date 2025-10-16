@@ -57,8 +57,9 @@ classdef srsHVPS < powerSupply
                 dataOut = fscanf(obj.hVisa);
                 obj.dataOut = dataOut;
                 obj.lastRead = str2double(strtrim(dataOut));
-                
-                obj.hVisa.BytesAvailableFcn = @obj.devR_async;
+                obj.lastReadTime = datetime('now');
+
+                obj.hVisa.BytesAvailableFcn = @(~,~) nan;
                 if strcmp(obj.hVisa.Status,'open')
                     flushoutput(obj.hVisa);
                     flushinput(obj.hVisa);

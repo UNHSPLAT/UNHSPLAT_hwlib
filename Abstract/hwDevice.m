@@ -24,6 +24,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         Connected = false %connection status of hwDevice
         readFunc = @(x) nan%
         lastRead %
+        lastReadTime
         refreshRate = 4 %
         Timer = timer
         Protocol string % Device protocol (i.e. gpib, tcpip, usb, etc.)
@@ -166,6 +167,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                       end
 
                       if strcmp(obj.hVisa.TransferStatus,'idle')
+                            obj.hVisa.BytesAvailableFcn = @(~,~) nan;
                             fprintf(obj.hVisa,dataIn);
 
                             obj.hVisa.BytesAvailableFcn = readFunc;
@@ -206,6 +208,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 end
                 drawnow;
                 obj.read_delay = toc;
+                obj.lastReadTime = datetime('now');
             else
                 obj.lastRead = obj.lastRead*nan;
                 obj.read_delay = nan;
