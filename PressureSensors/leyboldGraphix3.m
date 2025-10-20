@@ -42,6 +42,7 @@ classdef leyboldGraphix3 < hwDevice
             sendStr = obj.leyboldCRC(sendStr);
 
             obj.devRW(sendStr);
+            
 
         end
 

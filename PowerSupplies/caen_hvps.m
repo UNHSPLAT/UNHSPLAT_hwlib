@@ -101,10 +101,14 @@ classdef caen_hvps < handle
         end
 
         function getVals(obj,~,~)
-            obj.lastRead=obj.measV(4);
-            drawnow;
-            obj.lastIRead = obj.measI(4);
-            drawnow;
+            try
+                obj.lastRead=obj.measV(4);
+                drawnow;
+                obj.lastIRead = obj.measI(4);
+                drawnow;
+            catch
+                obj.Connected = False;
+            end
         end
 
         function setVset(obj,chn,volt) %sets the voltage for channel chn (V)
@@ -202,7 +206,12 @@ classdef caen_hvps < handle
         end
 
         function shutdown(obj,~,~)
-                stop(obj.Timer);
+                if isvalid(obj.Timer)
+                    % Stop timer if still running
+                    if strcmp(obj.Timer.Running,'on')
+                        stop(obj.Timer);
+                    end
+                end
                 obj.Connected = false;
                 obj.lastRead = nan*obj.lastRead;
         end
@@ -236,7 +245,9 @@ classdef caen_hvps < handle
         function delete(obj)
             % Delete the webcam object
             obj.shutdown();
-            delete(obj.Timer);
+            if isvalid(obj.Timer)
+                delete(obj.Timer);
+            end
         end
 
     end

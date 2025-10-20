@@ -117,7 +117,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                           if nargout > 0
                               readasync(obj.hVisa);
                               while ~strcmp(obj.hVisa.TransferStatus,'idle')
-                                  pause(0.1);
+                                  pause(0.01);
                                   drawnow;
                               end
                               dataOut = fscanf(obj.hVisa);
