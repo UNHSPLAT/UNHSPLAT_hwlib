@@ -109,6 +109,8 @@ classdef caen_gui_menu < handle
                 [action ' All Channels'], ...
                 'Yes', 'No', 'No');
             
+            caen = obj.parentInst;
+
             if strcmp(choice, 'Yes')
                     fprintf('Enabling all Channels\n');
                 try
