@@ -232,6 +232,12 @@ classdef SWIPS_OK < handle
         function read(obj,~,~)
             if obj.Connected
                 tic;
+                if ~obj.isDeviceConnected()
+                    obj.read_nan();
+                    obj.read_delay = toc;
+                    obj.Connected = false;
+                    return;
+                end
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
                 display(obj.lastRead);
                 obj.read_delay = toc;
@@ -264,6 +270,47 @@ classdef SWIPS_OK < handle
             % Stop timer if still running
             if strcmp(obj.Timer.Running,'on')
                 stop(obj.Timer);
+            end
+        end
+
+        function connected = isDeviceConnected(obj)
+            % isDeviceConnected - Check if the OpalKelly device is still connected
+            %   Returns true if the device is connected and responding, false otherwise
+            %   This method attempts to communicate with the device to verify the connection
+            
+            connected = false;
+            
+            % First check if we think we're connected
+            if ~obj.Connected
+                return;
+            end
+            
+            % Check if library is loaded
+            if ~libisloaded('okFrontPanel')
+                obj.Connected = false;
+                return;
+            end
+            
+            try
+                % Try to check if FrontPanel is enabled
+                isEnabled = calllib('okFrontPanel', 'okFrontPanel_IsFrontPanelEnabled', obj.okfp);
+                
+                if ~isEnabled
+                    obj.Connected = false;
+                    return;
+                end
+                
+                % Try a simple read operation to verify communication
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+                
+                % If we got here without error, device is connected
+                connected = true;
+                
+            catch ME
+                % Any error means we lost connection
+                warning('OpalKelly:ConnectionLost', '%s', ME.message);
+                obj.Connected = false;
+                connected = false;
             end
         end
     end
