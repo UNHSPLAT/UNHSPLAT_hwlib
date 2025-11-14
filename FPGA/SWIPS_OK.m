@@ -241,9 +241,13 @@ classdef SWIPS_OK < handle
                     obj.read_delay = toc;
                     obj.dropCount = obj.dropCount + 1;
                     warning('OpalKelly:ConnectionLost', 'Lost connection to Opal Kelly Device during read.');
+                    if obj.dropCount >3
+                        obj.Connected = false;
+                    end
                     return;
                 end
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
+                obj.dropCount = 0;
                 display(obj.lastRead);
                 obj.read_delay = toc;
             else
