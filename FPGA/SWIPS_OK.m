@@ -28,6 +28,8 @@ classdef SWIPS_OK < handle
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
         Tag
         acq_timer = timer;
+
+        dropCount = 0;
     end
 
     methods
@@ -104,8 +106,10 @@ classdef SWIPS_OK < handle
                     obj.Connected = true;
 
                     obj.funcConfig(obj);
-                catch
+                catch ME
                     disp('Error Connecting to Opal Kelly Device')
+                    disp(['Error: ' ME.message])
+                    disp(['In: ' ME.identifier])
                     obj.Connected = false;
                     return
                 end
@@ -235,7 +239,8 @@ classdef SWIPS_OK < handle
                 if ~obj.isDeviceConnected()
                     obj.read_nan();
                     obj.read_delay = toc;
-                    obj.Connected = false;
+                    obj.dropCount = obj.dropCount + 1;
+                    warning('OpalKelly:ConnectionLost', 'Lost connection to Opal Kelly Device during read.');
                     return;
                 end
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
@@ -296,7 +301,6 @@ classdef SWIPS_OK < handle
                 isEnabled = calllib('okFrontPanel', 'okFrontPanel_IsFrontPanelEnabled', obj.okfp);
                 
                 if ~isEnabled
-                    obj.Connected = false;
                     return;
                 end
                 
