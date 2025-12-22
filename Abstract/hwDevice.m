@@ -36,7 +36,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         function obj = hwDevice(address,funcConfig)
             %GPIBDEVICE Construct an instance of this class
             %   Detailed explanation goes here
-            
+            arguments
+                address string='';%
+                funcConfig = @(x) x;
+            end
             obj.funcConfig = funcConfig;
             %format and store the address
             if isnumeric(address)

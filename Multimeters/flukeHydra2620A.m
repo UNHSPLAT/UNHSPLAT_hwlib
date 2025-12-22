@@ -36,13 +36,9 @@ classdef flukeHydra2620A < multimeter
         end
 
         function dataOut = scan(obj)
-            tic;
-%             obj.devRW('SCAN 1');
             dataOut = obj.devRW('LAST?');
-%             obj.devRW('SCAN 0');
             tokes = regexp(strtrim(dataOut),',','split');
             dataOut = str2double(tokes);
-            display(toc);
         end
     end
 end

@@ -17,13 +17,13 @@ classdef srsSR620 < frequencyCounter
             %SRSSR620 Construct an instance of this class
             %   Detailed explanation goes here
             obj@frequencyCounter(address);
-
         end
 
         function dataOut = measure(obj)
 
             dataOut = obj.devRW('MEAS? 0');
             dataOut = str2double(strtrim(dataOut));
+            display(dataOut);
 
         end
     end
