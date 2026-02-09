@@ -35,7 +35,7 @@ classdef SWIPS_OK < handle
     methods
         function obj = SWIPS_OK(bitfile,funcConfig)
             arguments
-                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x0f27429b_swips.bit')) ;%
+                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
             obj.bitfile = bitfile;
