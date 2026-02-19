@@ -107,7 +107,7 @@ classdef caen_hvps < handle
                 obj.lastIRead = obj.measI(4);
                 drawnow;
             catch
-                obj.Connected = False;
+                obj.Connected = false;
             end
         end
 

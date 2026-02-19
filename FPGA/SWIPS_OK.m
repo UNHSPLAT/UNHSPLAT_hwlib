@@ -35,7 +35,7 @@ classdef SWIPS_OK < handle
     methods
         function obj = SWIPS_OK(bitfile,funcConfig)
             arguments
-                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x0f27429b_swips.bit')) ;%
+                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
             obj.bitfile = bitfile;
@@ -241,9 +241,13 @@ classdef SWIPS_OK < handle
                     obj.read_delay = toc;
                     obj.dropCount = obj.dropCount + 1;
                     warning('OpalKelly:ConnectionLost', 'Lost connection to Opal Kelly Device during read.');
+                    if obj.dropCount >3
+                        obj.Connected = false;
+                    end
                     return;
                 end
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
+                obj.dropCount = 0;
                 display(obj.lastRead);
                 obj.read_delay = toc;
             else
