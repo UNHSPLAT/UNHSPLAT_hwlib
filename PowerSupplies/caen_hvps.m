@@ -1,4 +1,4 @@
-classdef caen_hvps < hwlib.Abstract.hwDevice
+classdef caen_hvps < hwDevice
 
     properties (Constant)
         Type string = "Power Supply"
@@ -32,7 +32,7 @@ classdef caen_hvps < hwlib.Abstract.hwDevice
             end
             
             % Call parent constructor
-            obj@hwlib.Abstract.hwDevice(funcConfig);
+            obj@hwDevice(funcConfig);
             
             obj.Address = Address;
             obj.LBus_Address = LBus_Address;

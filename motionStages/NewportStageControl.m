@@ -1,4 +1,4 @@
-classdef NewportStageControl < hwlib.Abstract.hwDevice
+classdef NewportStageControl < hwDevice
 
     properties (Constant)
         Type string = "Motion Stage"
@@ -28,7 +28,7 @@ classdef NewportStageControl < hwlib.Abstract.hwDevice
             end
             
             % Call parent constructor
-            obj@hwlib.Abstract.hwDevice(funcConfig);
+            obj@hwDevice(funcConfig);
             
             obj.Connected = false;
             obj.Tag = '3axisNewportStage';
