@@ -82,6 +82,19 @@ classdef hVisaHw < hwDevice
             end
         end
 
+        function disconnectDevice(obj)
+            %DISCONNECTDEVICE Disconnect from VISA device
+            if obj.Connected
+                obj.stopTimer();
+                if ~isempty(obj.hVisa)
+                    if strcmp(obj.hVisa.Status, 'open')
+                        fclose(obj.hVisa);
+                    end
+                end
+                obj.Connected = false;
+            end
+        end
+
         function dataOut = devRW(obj, dataIn)
             %DEVRW Read/Write to VISA device
             %   dataOut = devRW(obj, dataIn) sends dataIn to device and

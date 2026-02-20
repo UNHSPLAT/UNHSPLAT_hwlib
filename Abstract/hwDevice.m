@@ -24,6 +24,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     methods (Abstract)
         connectDevice(obj) % Abstract method to connect to device
+        disconnectDevice(obj) % Abstract method to disconnect from device
     end
 
     methods

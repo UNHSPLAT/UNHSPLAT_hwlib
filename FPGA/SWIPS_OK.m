@@ -1,7 +1,6 @@
-classdef SWIPS_OK < handle
+classdef SWIPS_OK < hwDevice
 
     properties
-%         Tag string =""%
         textLabel string = ""% 
         unit string = ""%
         Address string = ""%
@@ -14,11 +13,7 @@ classdef SWIPS_OK < handle
     end
 
     properties (SetObservable) 
-        Timer=timer%
-        Connected = false%
         lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
-        read_delay = nan;
-        funcConfig
 
         bitfile string   % fpga bit file
         dac_table = ones(1,16)*60; % default DAC table
@@ -26,7 +21,6 @@ classdef SWIPS_OK < handle
                                    % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
-        Tag
         acq_timer = timer;
 
         dropCount = 0;
@@ -38,14 +32,24 @@ classdef SWIPS_OK < handle
                 bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
+            
+            % Call parent constructor
+            obj@hwDevice(funcConfig);
+            
             obj.bitfile = bitfile;
-            obj.funcConfig = funcConfig;
-            obj.Timer =  timer('Period',10,... %period
+            obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16));
+            
+            % Override timer settings for SWIPS_OK
+            obj.refreshRate = 10;
+            delete(obj.Timer);
+            obj.Timer = timer('Period',10,... %period
                       'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
                       'BusyMode','drop',... %{drop, error, queue}
                       'StartDelay',0,...
                       'TimerFcn',@obj.read ...
                       );
+            
+            obj.connectDevice();
         end
 
         function connectDevice(obj)
@@ -124,21 +128,22 @@ classdef SWIPS_OK < handle
             % start(obj.Timer);
         end
 
-        function delete(obj)
-            if obj.Connected
-                obj.close
-            end
-            delete(obj.Timer);
-        end
-
-        function close(obj)
+        function disconnectDevice(obj)
+            obj.stopTimer();
             
             if libisloaded('okFrontPanel')
-                    calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
             end
             
             obj.Connected = false;
+        end
+        
+        function delete(obj)
+            if obj.Connected
+                obj.disconnectDevice();
+            end
+            delete@hwDevice(obj);
         end 
 
         function configurePPA_ok(obj, dac_table)
