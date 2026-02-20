@@ -1,56 +1,51 @@
-classdef caen_hvps < handle
-
-    properties
-%         Tag string =""%
-        textLabel string = ""% 
-        unit string = ""%
-        Address string = ""%
-        asmInfo %
-    end
+classdef caen_hvps < hwlib.Abstract.hwDevice
 
     properties (Constant)
         Type string = "Power Supply"
         ModelNum string = "caen_N1470"
     end
 
-    properties (SetObservable) 
-        Timer=timer%
-        Connected = false
-        lastRead = [nan,nan,nan,nan];%
-        lastIRead = [nan,nan,nan,nan];%
-        funcConfig
+    properties
+        textLabel string = ""% 
+        unit string = ""%
+        Address string = ""%
+        asmInfo %
+    end
 
-        readFunc = @(x) nan;
+    properties (SetObservable) 
+        lastIRead = [nan,nan,nan,nan];%
 
         equip_config_folder string = "" % folder containing config file
         equip_config_filename string = 'config_caenPS.ini'
         hvps_section string = 'HVPS'
         port_key 
         LBus_Address = 2
-        Tag
-
-        read_delay = nan
     end
 
     methods
         function obj = caen_hvps(Address,funcConfig,LBus_Address,config_filename)
             arguments
-                Address string='';%
-                funcConfig = @(x) x;
-                LBus_Address = 2;
-                config_filename = 'config_caenPS.ini';
+                Address string=''
+                funcConfig = @(x) x
+                LBus_Address = 2
+                config_filename = 'config_caenPS.ini'
             end
-            obj.funcConfig = funcConfig;
+            
+            % Call parent constructor
+            obj@hwlib.Abstract.hwDevice(funcConfig);
+            
+            obj.Address = Address;
             obj.LBus_Address = LBus_Address;
             obj.equip_config_filename = config_filename;
-%              initialize timer to grab position data at some cadence
-            obj.Timer =  timer('Period',5,... %period
-                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
-                      'BusyMode','drop',... %{drop, error, queue}
-                      'StartDelay',0,...
-                      'TimerFcn',@obj.read ...
-                      );
+            obj.lastRead = [nan,nan,nan,nan];
+            obj.lastIRead = [nan,nan,nan,nan];
+            
+            % Set up read function for hwDevice
             obj.readFunc = @obj.getVals;
+            
+            % Set refresh rate to 5 seconds and reinitialize timer
+            obj.refreshRate = 5;
+            obj.initTimer();
         end
 
         function con_stat = connectDevice(obj)
@@ -70,6 +65,13 @@ classdef caen_hvps < handle
             end
         end
 
+        function disconnectDevice(obj)
+            % Disconnect from CAEN HVPS
+            obj.stopTimer();
+            obj.Connected = false;
+            obj.lastRead = nan*obj.lastRead;
+        end
+
         function resp = command(obj, command_type, channel, parameter, value)
             % Args:
             %   command_type (char)
@@ -82,22 +84,6 @@ classdef caen_hvps < handle
             %     VAL : (numerical value must have a Format compatible with resolution and range) 
             cmd = HVPS_command(obj.LBus_Address,command_type, channel, parameter, value);
             resp = send_command_to_HVPS(cmd, obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section);
-        end
-
-        function read(obj,~,~) 
-            if obj.Connected
-                tic;
-                % execute read function, assign output to lastRead if output exists
-                if nargout(obj.readFunc)>0
-                    obj.lastRead = obj.readFunc(obj);
-                else
-                    obj.readFunc(obj);
-                end
-                obj.read_delay = toc;
-            else
-                obj.lastRead = obj.lastRead*nan;
-                obj.read_delay = nan;
-            end
         end
 
         function getVals(obj,~,~)
@@ -115,7 +101,7 @@ classdef caen_hvps < handle
             if volt < 0
                 warning("Voltage set by magnitude so must be positive, setting to abs(volt)");
             end
-            resp = command(obj,"SET",chn,"VSET",abs(volt));
+            command(obj,"SET",chn,"VSET",abs(volt));
         end
 
         function volt = getVset(obj,chn) %returns value of VSET (voltage setting, not actual monitored voltage) in channels 0-3 (V)
@@ -131,7 +117,7 @@ classdef caen_hvps < handle
         end
 
         function setIset(obj,chn,curr) %sets the trip current threshold (uA)
-            resp = command(obj,"SET",chn,"ISET",curr);
+            command(obj,"SET",chn,"ISET",curr);
         end
 
         function curr = getIset(obj,chn) %returns value of the trip current threshold values (uA)
@@ -148,7 +134,7 @@ classdef caen_hvps < handle
 
         function setIMRANGE(obj,chn,range) %sets the range for the current (high or low)
             if range == "HIGH" || range == "LOW"
-                resp = command(obj,"SET",chn,"IMRANGE",range);
+                command(obj,"SET",chn,"IMRANGE",range);
             else 
                 fprintf("Not HIGH or LOW\n"); 
             end
@@ -172,7 +158,7 @@ classdef caen_hvps < handle
         end
 
         function setRUP(obj,chn,curr) %sets the ramp up rate (V)
-            resp = command(obj,"SET",chn,"RUP",curr);
+            command(obj,"SET",chn,"RUP",curr);
         end
 
         function rup = getRUP(obj,chn) %returns value of the ramp up rate values (V)
@@ -182,7 +168,7 @@ classdef caen_hvps < handle
         end
 
         function setRDW(obj,chn,curr) %sets the ramp down rate (V)
-            resp = command(obj,"SET",chn,"RDW",curr);
+            command(obj,"SET",chn,"RDW",curr);
         end
 
         function rdw = getRDW(obj,chn) %returns value of the ramp down rate (V)
@@ -192,11 +178,11 @@ classdef caen_hvps < handle
         end
 
         function setON(obj,chn) %sets the channel on
-            resp = command(obj,"SET",chn,"ON",[]);
+            command(obj,"SET",chn,"ON",[]);
         end
 
         function setOFF(obj,chn) %sets the channel off
-            resp = command(obj,"SET",chn,"OFF",[]);
+            command(obj,"SET",chn,"OFF",[]);
         end
 
         function pow = measP(obj,chn) %returns channel status
@@ -205,49 +191,9 @@ classdef caen_hvps < handle
             if chn == 4 pow = dum(2:5); else pow = dum(2); end
         end
 
-        function shutdown(obj,~,~)
-                if isvalid(obj.Timer)
-                    % Stop timer if still running
-                    if strcmp(obj.Timer.Running,'on')
-                        stop(obj.Timer);
-                    end
-                end
-                obj.Connected = false;
-                obj.lastRead = nan*obj.lastRead;
-        end
-
         function restart(obj,~,~)
-            obj.shutdown();
-            obj.initDevice();
-        end
-        
-        function restartTimer(obj)
-            %RESTARTTIMER Restarts timer if error
-
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-
-            % Restart timer
-            if obj.Connected
-                start(obj.Timer);
-            end
-        end
-
-        function stopTimer(obj)
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-        end
-
-        function delete(obj)
-            % Delete the webcam object
-            obj.shutdown();
-            if isvalid(obj.Timer)
-                delete(obj.Timer);
-            end
+            obj.disconnectDevice();
+            obj.connectDevice();
         end
 
     end
