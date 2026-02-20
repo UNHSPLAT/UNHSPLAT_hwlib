@@ -13,8 +13,7 @@ classdef SWIPS_OK < hwDevice
     end
 
     properties (SetObservable) 
-        lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
-
+       
         bitfile string   % fpga bit file
         dac_table = ones(1,16)*60; % default DAC table
                                    % default DAC table @2000 V [68,60,60,60, 60,60,60,60, 60,60,60,61, 60,60,60,76]
@@ -37,7 +36,7 @@ classdef SWIPS_OK < hwDevice
             obj@hwDevice(funcConfig);
             
             obj.bitfile = bitfile;
-            obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16));
+            obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
             
             % Override timer settings for SWIPS_OK
             obj.refreshRate = 10;
