@@ -156,6 +156,73 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
+        function evenPulserEnable(obj, enable)
+            % evenPulserEnable - Enable/disable the even pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 0 of WireIn address 0x06 (PULSER_CONFIG)
+            % Based on Pulser Config table
+            
+            if obj.Connected
+                if enable
+                    % Enable even pulser (set bit 0 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(1), hex2dec('01'));
+                    disp('Even Pulser Enabled');
+                else
+                    % Disable even pulser (set bit 0 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('01'));
+                    disp('Even Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure even pulser.');
+            end
+        end
+
+        function oddPulserEnable(obj, enable)
+            % oddPulserEnable - Enable/disable the odd pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 1 of WireIn address 0x06 (PULSER_CONFIG)
+            % Based on Pulser Config table
+            
+            if obj.Connected
+                if enable
+                    % Enable odd pulser (set bit 1 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(2), hex2dec('02'));
+                    disp('Odd Pulser Enabled');
+                else
+                    % Disable odd pulser (set bit 1 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('02'));
+                    disp('Odd Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure odd pulser.');
+            end
+        end
+        
+        function pulserOutputSelection(obj, selection)
+            % pulserOutputSelection - Select which SSD pair receives pulser output
+            % selection: 0-7 corresponding to SSD pairs 0/1, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13, 14/15
+            % Sets bits 6:4 of WireIn 0x06
+            if obj.Connected
+                % Validate input
+                if selection < 0 || selection > 7
+                    error('Selection must be 0-7 (0=SSD 0/1, 1=SSD 2/3, ..., 7=SSD 14/15)');
+                end
+                
+                % Shift selection to bits 6:4 and set with mask 0x70
+                value = bitshift(uint32(selection), 4);
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), value, hex2dec('70'));
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+                disp(['Pulser Output set to SSD ', num2str(selection*2), '/', num2str(selection*2+1)]);
+            else
+                warning('Device not connected. Cannot configure pulser output selection.');
+            end
+        end
+
+
         function askPPA_ok(obj)
             % acquirePPA_ok - Rev 0, SXL, 8/13/2025
             %  "okfp": opal kelly object
@@ -176,13 +243,7 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
 
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
-
-                % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
-                if(obj.acq_time == 0)
-                    pause_t = 1+1;
-                elseif(obj.acq_time == 1)
-                    pause_t = 10+1;
-                end
+                
                 obj.acq_timer = timer('StartDelay', pause_t,...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
