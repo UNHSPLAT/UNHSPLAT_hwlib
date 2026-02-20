@@ -1,4 +1,4 @@
-classdef leyboldCenter2 < hwDevice
+classdef leyboldCenter2 < hVisaHw
     %LEYBOLDCENTER2 Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -21,7 +21,7 @@ classdef leyboldCenter2 < hwDevice
                 address string='';%
                 funcConfig = @(x) x;
             end
-            obj@hwDevice(address,funcConfig);
+            obj@hVisaHw(address,funcConfig);
 
             obj.hVisa.BaudRate = 9600;
             obj.hVisa.Terminator = 'CR';

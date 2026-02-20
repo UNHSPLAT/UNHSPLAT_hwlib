@@ -1,4 +1,4 @@
-classdef powerSupply < hwDevice
+classdef powerSupply < hVisaHw
     %POWERSUPPLY Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -29,7 +29,7 @@ classdef powerSupply < hwDevice
                 funcConfig = @(x) x;
             end
             
-            obj@hwDevice(address,funcConfig);
+            obj@hVisaHw(address,funcConfig);
         end
     end
 

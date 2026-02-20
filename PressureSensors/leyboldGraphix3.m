@@ -1,4 +1,4 @@
-classdef leyboldGraphix3 < hwDevice
+classdef leyboldGraphix3 < hVisaHw
     %LEYBOLDGRAPHIX3 Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -21,7 +21,7 @@ classdef leyboldGraphix3 < hwDevice
                 address string='';%
                 funcConfig = @(x) x;
             end
-            obj@hwDevice(address,funcConfig);
+            obj@hVisaHw(address,funcConfig);
 
             obj.hVisa.BaudRate = 38400;
             obj.hVisa.Terminator = 4;
