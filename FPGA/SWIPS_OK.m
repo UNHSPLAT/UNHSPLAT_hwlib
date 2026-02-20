@@ -202,6 +202,30 @@ classdef SWIPS_OK < hwDevice
             end
         end
         
+        function externalPulserEnable(obj, enable)
+            % externalPulserEnable - Enable/disable the external pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 2 of WireIn address 0x06 (PULSER_CONFIG)
+            % When enabled, overrides internal rate selection
+            % Based on Pulser Config table
+            
+            if obj.Connected
+                if enable
+                    % Enable external pulser (set bit 2 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(4), hex2dec('04'));
+                    disp('External Pulser Enabled (overrides rate selection)');
+                else
+                    % Disable external pulser (set bit 2 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('04'));
+                    disp('External Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure external pulser.');
+            end
+        end
+        
         function pulserOutputSelection(obj, selection)
             % pulserOutputSelection - Select which SSD pair receives pulser output
             % selection: 0-7 corresponding to SSD pairs 0/1, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13, 14/15
@@ -219,6 +243,28 @@ classdef SWIPS_OK < hwDevice
                 disp(['Pulser Output set to SSD ', num2str(selection*2), '/', num2str(selection*2+1)]);
             else
                 warning('Device not connected. Cannot configure pulser output selection.');
+            end
+        end
+        
+        function pulserFrequency(obj, frequency)
+            % pulserFrequency - Set pulser frequency
+            % frequency: 0=10Hz, 1=100Hz, 2=1kHz, 3=10kHz, 4=100kHz
+            % Sets bits 2:0 of WireIn 0x07
+            if obj.Connected
+                % Validate input
+                if frequency < 0 || frequency > 4
+                    error('Frequency must be 0-4 (0=10Hz, 1=100Hz, 2=1kHz, 3=10kHz, 4=100kHz)');
+                end
+                
+                % Frequency labels for display
+                freqDisplay = {'10 Hz', '100 Hz', '1 kHz', '10 kHz', '100 kHz'};
+                
+                % Set bits 2:0 with mask 0x07
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('07'), uint32(frequency), hex2dec('07'));
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+                disp(['Pulser Frequency set to ', freqDisplay{frequency+1}]);
+            else
+                warning('Device not connected. Cannot configure pulser frequency.');
             end
         end
 
@@ -243,7 +289,7 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
 
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
-                
+
                 obj.acq_timer = timer('StartDelay', pause_t,...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
