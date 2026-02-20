@@ -1,7 +1,11 @@
-classdef NewportStageControl < handle
+classdef NewportStageControl < hwlib.Abstract.hwDevice
+
+    properties (Constant)
+        Type string = "Motion Stage"
+        ModelNum string = "Newport XPS"
+    end
 
     properties
-        Tag string =""%
         textLabel string = ""% 
         unit string = ""%
         Address string = ""%
@@ -11,32 +15,35 @@ classdef NewportStageControl < handle
     end
 
     properties (SetObservable) 
-        Timer=timer%
-        Connected%
-        lastRead%
         myxps
-        funcConfig
     end
 
     methods
-        function obj = NewportStageControl(Address,groups)
+        function obj = NewportStageControl(Address,groups,funcConfig)
             % Initialize control
+            arguments
+                Address string
+                groups = ["Group1","Group2","Group3"]
+                funcConfig = @(x) x
+            end
+            
+            % Call parent constructor
+            obj@hwlib.Abstract.hwDevice(funcConfig);
+            
             obj.Connected = false;
             obj.Tag = '3axisNewportStage';
             
             obj.Address = Address;
-            if nargin >1
-                obj.groups = groups;
-            end
+            obj.groups = groups;
             obj.lastRead = zeros(1,length(obj.groups))*nan;
+            
+            % Set up read function for hwDevice
+            obj.readFunc = @(x) obj.getAllPositions();
+            
+            % Set refresh rate to 1 second and reinitialize timer
+            obj.refreshRate = 1;
+            obj.initTimer();
                 
-            % initialize timer to grab position data at some cadence
-            obj.Timer =  timer('Period',1,... %period
-                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
-                      'BusyMode','drop',... %{drop, error, queue}
-                      'StartDelay',0,...
-                      'TimerFcn',@obj.read ...
-                      );
             try
                 obj.asmInfo = NET.addAssembly('Newport.XPS.CommandInterface');
                 obj.myxps = CommandInterfaceXPS.XPS();
@@ -52,20 +59,19 @@ classdef NewportStageControl < handle
             val = obj.lastRead;
         end
 
-        function shutdown(obj,~,~)
-                if ~isempty(obj.myxps)
-                    try
-                        things = obj.myxps.KillAll();
-                        obj.myxps.CloseInstrument;
-                    catch
-                        % Ignore errors during shutdown
-                    end
+        function disconnectDevice(obj)
+            % Disconnect from the Newport XPS stage
+            if ~isempty(obj.myxps)
+                try
+                    obj.myxps.KillAll();
+                    obj.myxps.CloseInstrument;
+                catch
+                    % Ignore errors during shutdown
                 end
-                if ~isempty(obj.Timer) && isvalid(obj.Timer) && strcmp(obj.Timer.Running, 'on')
-                    stop(obj.Timer);
-                end
-                obj.Connected = false;
-                obj.lastRead = nan;
+            end
+            obj.stopTimer();
+            obj.Connected = false;
+            obj.lastRead = nan;
         end
 
         function connectDevice(obj)
@@ -109,36 +115,10 @@ classdef NewportStageControl < handle
         end
 
         function restart(obj,~,~)
-            obj.shutdown();
+            obj.disconnectDevice();
+            obj.connectDevice();
             obj.initDevice();
             obj.home();
-        end
-        
-        function restartTimer(obj)
-            %RESTARTTIMER Restarts timer if error
-
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-
-            % Restart timer
-            if obj.Connected
-                start(obj.Timer);
-            end
-        end
-
-        function stopTimer(obj)
-            % Stop timer if still running and valid
-            if ~isempty(obj.Timer) && isvalid(obj.Timer) && strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-        end
-
-        function delete(obj)
-            % Delete the webcam object
-            obj.shutdown();
-            delete(obj.Timer);
         end
 
         function home(obj)
@@ -169,7 +149,6 @@ classdef NewportStageControl < handle
 
         % Set and get position methods
         function setPosition(obj,group,position)
-            run_status = obj.Timer.Running;
             if obj.Connected
                 code = obj.myxps.GroupMoveAbsolute(group,position,1);
                 if code ~= 0
