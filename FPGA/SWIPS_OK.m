@@ -40,7 +40,7 @@ classdef SWIPS_OK < hwDevice
             
             % Override timer settings for SWIPS_OK
             obj.refreshRate = 10;
-            obj.read_func = askPPA_ok(obj);
+            obj.readFunc = @(x) obj.askPPA_ok();
             
             obj.connectDevice();
         end
