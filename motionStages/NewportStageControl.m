@@ -54,11 +54,6 @@ classdef NewportStageControl < hwDevice
             
         end
 
-        function val = read(obj,~,~)
-            obj.lastRead=obj.getAllPositions();
-            val = obj.lastRead;
-        end
-
         function disconnectDevice(obj)
             % Disconnect from the Newport XPS stage
             if ~isempty(obj.myxps)

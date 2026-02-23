@@ -61,7 +61,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         end
         
         function initTimer(obj)
-            obj.Timer = timer('Period',obj.refreshRate,... %period
+            % Create timer name from hardware info
+            if isempty(obj.Tag)
+                timerName = [char(obj.Type) '_' char(obj.ModelNum) '_Timer'];
+            else
+                timerName = [char(obj.Type) '_' char(obj.ModelNum) '_' char(obj.Tag) '_Timer'];
+            end
+            
+            obj.Timer = timer('Name', timerName,...
+                                      'Period',obj.refreshRate,... %period
                                       'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
                                       'BusyMode','drop',... %{drop, error, queue}       
                                       'StartDelay',0,...
