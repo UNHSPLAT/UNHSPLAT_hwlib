@@ -40,13 +40,7 @@ classdef SWIPS_OK < hwDevice
             
             % Override timer settings for SWIPS_OK
             obj.refreshRate = 10;
-            delete(obj.Timer);
-            obj.Timer = timer('Period',10,... %period
-                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
-                      'BusyMode','drop',... %{drop, error, queue}
-                      'StartDelay',0,...
-                      'TimerFcn',@obj.read ...
-                      );
+            obj.read_func = askPPA_ok(obj);
             
             obj.connectDevice();
         end
@@ -291,6 +285,7 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
 
                 obj.acq_timer = timer('StartDelay', 10^obj.acq_time,...
+                                        'Name', 'swips_OK_dwell_Timer',...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
                                         'BusyMode','queue',...
@@ -344,7 +339,7 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.PPACnt = ppaCnt;
         end
 
-        function read(obj,~,~)
+        function readPPA_ok(obj,~,~)
             if obj.Connected
                 tic;
                 if ~obj.isDeviceConnected()

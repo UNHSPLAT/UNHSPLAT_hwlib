@@ -50,7 +50,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
                 obj.read_delay = toc;
                 obj.lastReadTime = datetime('now');
             else
-                obj.lastRead = obj.lastRead*nan;
+                % Handle struct or numeric lastRead
+                if isstruct(obj.lastRead)
+                    fields = fieldnames(obj.lastRead);
+                    for i = 1:length(fields)
+                        obj.lastRead.(fields{i}) = obj.lastRead.(fields{i})*nan;
+                    end
+                else
+                    obj.lastRead = obj.lastRead*nan;
+                end
                 obj.read_delay = nan;
             end
         end
