@@ -68,36 +68,44 @@ classdef leyboldGraphix3 < hVisaHw
                 sensorNum = 1;
             end
             
-            % Initialize pressure array in object for async collection
-            obj.lastRead = nan(1, length(sensorNum));
-            
             % Store sensor list and current index in object for async use
-            obj.sensorList = sensorNum;
-            obj.currentSensorIndex = sensorNum;
+            if length(sensorNum) > 1
+                obj.sensorList = sensorNum;
+                obj.currentSensorIndex = sensorNum(1);
+            else
+                obj.currentSensorIndex = sensorNum;
+            end
             
+            function handlePressureResponse(obj, ~, ~)
+                    % Process current sensor's data
+                    try
+                        pressure = str2double(strtrim(obj.dataOut(2:end-2)));
+                        obj.lastRead(obj.currentSensorIndex) = pressure;
+                        display(pressure);
+                    catch
+                        obj.lastRead(obj.currentSensorIndex) = nan;
+                    end
+                    % Clean up when done
+                    delete(obj.pressureListener);
+                    obj.pressureListener = [];
+                    
+                    % continue if there are more sensors to read
+                    if ismember(obj.currentSensorIndex+1, obj.sensorList)
+                        obj.readPressure_async(obj.sensorList(obj.currentSensorIndex + 1));
+                    else
+                        obj.currentSensorIndex = [];
+                        obj.sensorList = [];
+                    end
+                end
+
             % Create listener for data collection
             obj.pressureListener = addlistener(obj, 'dataOut', 'PostSet', ...
                 @(src,evt) handlePressureResponse(obj, src, evt));
             
             % Start first sensor read
-            sendStr = obj.leyboldCRC([char(15), num2str(sensorNum(1)), char(59), num2str(29)]);
+            sendStr = obj.leyboldCRC([char(15), num2str(obj.currentSensorIndex), char(59), num2str(29)]);
             obj.devRW_async(sendStr);
             
-            function handlePressureResponse(obj, ~, ~)
-                % Process current sensor's data
-                try
-                    pressure = str2double(strtrim(obj.dataOut(2:end-2)));
-                    obj.lastRead(obj.currentSensorIndex) = pressure;
-                    display(pressure);
-                catch
-                    obj.lastRead(obj.currentSensorIndex) = nan;
-                end
-                % Clean up when done
-                delete(obj.pressureListener);
-                obj.pressureListener = [];
-                obj.currentSensorIndex = [];
-                obj.sensorList = [];
-            end
         end
     end
 
