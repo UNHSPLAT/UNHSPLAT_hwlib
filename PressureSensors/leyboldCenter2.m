@@ -10,6 +10,8 @@ classdef leyboldCenter2 < hVisaHw
     properties
         readListen1
         readListen2
+        currentSensorIndex
+        sensorList
     end
 
 
@@ -59,45 +61,55 @@ classdef leyboldCenter2 < hVisaHw
         end
         
         function readPressure_async(obj, sensorNum)
-            inStr = ['PR',num2str(sensorNum)];
-            % Add listener for first response
-            delete(obj.readListen1);
-            obj.readListen1 = addlistener(obj, 'dataOut', 'PostSet', ...
-                @(src,evt) handleFirstResponse(obj, src, evt));
+            % Initialize or validate sensor numbers
+            if nargin < 2 || isempty(sensorNum)
+                sensorNum = 1;
+            end
             
-            % Start first async read
-            obj.devRW_async(inStr);
-            
-            function handleFirstResponse(obj, ~, evt)
-                % Remove the first listener
-                delete(obj.readListen1);
+            % Store sensor list and current index in object for async use
+            if length(sensorNum) > 1
+                obj.sensorList = sensorNum;
+                obj.currentSensorIndex = sensorNum(1);
+            else
+                obj.currentSensorIndex = sensorNum;
+            end
+
+            function handlePressureResponse(obj, ~, ~)
+                obj.devR_async();
+                % Process current sensor's data
+                try
+                    tokes = regexp(strtrim(obj.dataOut), char(32), 'split');
+                    if str2double(tokes{1}) > 2
+                        obj.lastRead(obj.currentSensorIndex) = nan;
+                    else
+                        obj.lastRead(obj.currentSensorIndex) = str2double(tokes{2});
+                    end
+                catch
+                    obj.lastRead(obj.currentSensorIndex) = nan;
+                end
                 
-                % Check response
-                if obj.dataOut(1) == 6
-                    % Add listener for second response
-                    delete(obj.readListen2);
-                    obj.readListen2 = addlistener(obj, 'dataOut', 'PostSet', ...
-                        @(src,evt) handleSecondResponse(obj, src, evt));
-                    
-                    % Send ENQ for data
-                    obj.devRW_async(char(5));
+                % continue if there are more sensors to read
+                if ismember(obj.currentSensorIndex+1, obj.sensorList)
+                    obj.readPressure_async(obj.currentSensorIndex + 1);
+                else
+                    obj.currentSensorIndex = [];
+                    obj.sensorList = [];
+                end
+            end
+
+            function handlePressureAsk(obj,~,~)
+                retMsg = obj.dataOut;
+                if retMsg(1) == 6
+                    obj.devRW_async(char(5), @(~,~) handlePressureResponse(obj));
                 else
                     error("leyboldCenter2:notAcknowledged","Communication error! Message not acknowledged by controller...");
                 end
-            end
+            end    
             
-            function handleSecondResponse(obj, ~, evt)
-                % Remove the second listener
-                delete(obj.readListen2);
-                tokes = regexp(strtrim(obj.dataOut),char(32),'split');
-                if str2double(tokes{1}) > 2
-                    obj.lastRead(sensorNum) = NaN;
-                    %warning("leyboldCenter2:sensorUnconnected","No pressure sensor connected on output %i...",sensorNum(iS));
-                else
-                    obj.lastRead(sensorNum) = str2double(tokes{2});
-                end
-                % Data is now in obj.dataOut
-            end
+            % Start first sensor read
+            sendStr = ['PR', num2str(obj.currentSensorIndex)];
+            obj.devRW_async(sendStr,@(~,~) handlePressureAsk(obj));
+            
         end
     end
 end
