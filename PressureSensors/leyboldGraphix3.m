@@ -68,8 +68,9 @@ classdef leyboldGraphix3 < hVisaHw
 
         function readPressure_async(obj, sensorNum)
             % Initialize or validate sensor numbers
-            if nargin < 2 || isempty(sensorNum)
-                sensorNum = 1;
+            arguments
+                obj = nan;
+                sensorNum = [1,2,3];
             end
             
             % Store sensor list and current index in object for async use

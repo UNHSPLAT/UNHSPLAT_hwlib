@@ -62,8 +62,9 @@ classdef leyboldCenter2 < hVisaHw
         
         function readPressure_async(obj, sensorNum)
             % Initialize or validate sensor numbers
-            if nargin < 2 || isempty(sensorNum)
-                sensorNum = 1;
+            arguments
+                obj = nan;
+                sensorNum = [1,2];
             end
             
             % Store sensor list and current index in object for async use
@@ -98,6 +99,7 @@ classdef leyboldCenter2 < hVisaHw
             end
 
             function handlePressureAsk(obj,~,~)
+                obj.devR_async();
                 retMsg = obj.dataOut;
                 if retMsg(1) == 6
                     obj.devRW_async(char(5), @(~,~) handlePressureResponse(obj));
