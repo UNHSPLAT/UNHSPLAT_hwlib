@@ -192,7 +192,7 @@ classdef hVisaHw < hwDevice
                 fclose(obj.hVisa);
                 obj.stopTimer();
             end
-            obj.dataOut = "nan";
+%             obj.dataOut = "nan";
         end
 
         function devR_async(obj, ~, ~)

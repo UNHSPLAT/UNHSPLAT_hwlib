@@ -8,10 +8,14 @@ classdef leyboldGraphix3 < hVisaHw
     end
     
     properties (Access = private)
-        pressureListener
         currentSensorIndex
         sensorList
     end
+
+    properties
+        pressureListener
+    end
+
     
     methods
         function obj = leyboldGraphix3(address,funcConfig)
@@ -75,36 +79,30 @@ classdef leyboldGraphix3 < hVisaHw
             else
                 obj.currentSensorIndex = sensorNum;
             end
-            
+
             function handlePressureResponse(obj, ~, ~)
+                    
+                    obj.devR_async();
                     % Process current sensor's data
                     try
                         pressure = str2double(strtrim(obj.dataOut(2:end-2)));
                         obj.lastRead(obj.currentSensorIndex) = pressure;
-                        display(pressure);
                     catch
                         obj.lastRead(obj.currentSensorIndex) = nan;
                     end
-                    % Clean up when done
-                    delete(obj.pressureListener);
-                    obj.pressureListener = [];
                     
                     % continue if there are more sensors to read
                     if ismember(obj.currentSensorIndex+1, obj.sensorList)
-                        obj.readPressure_async(obj.sensorList(obj.currentSensorIndex + 1));
+                        obj.readPressure_async(obj.currentSensorIndex + 1);
                     else
                         obj.currentSensorIndex = [];
                         obj.sensorList = [];
                     end
-                end
-
-            % Create listener for data collection
-            obj.pressureListener = addlistener(obj, 'dataOut', 'PostSet', ...
-                @(src,evt) handlePressureResponse(obj, src, evt));
+            end
             
             % Start first sensor read
             sendStr = obj.leyboldCRC([char(15), num2str(obj.currentSensorIndex), char(59), num2str(29)]);
-            obj.devRW_async(sendStr);
+            obj.devRW_async(sendStr,@(~,~) handlePressureResponse(obj));
             
         end
     end
