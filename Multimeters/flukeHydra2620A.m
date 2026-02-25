@@ -16,7 +16,12 @@ classdef flukeHydra2620A < multimeter
             end
 
             obj@multimeter(address,funcConfig);
-            obj.lastRead = [nan,nan,nan];
+            obj.lastRead = [nan,nan,nan,nan];
+
+            function stuff = read_it(self)
+                stuff = self.scan();
+            end
+            obj.readFunc =@read_it;
         end
         
         function val = measure(obj)
