@@ -26,6 +26,10 @@ classdef swips_ok_gui_menu < handle
             uimenu(hMenu, 'Text', 'Disconnect FPGA',...
                 'MenuSelectedFcn', @(~,~) obj.disconnectFPGACallback());
                 
+            % collect pulse height distribition
+            uimenu(hMenu, 'Text', 'Collect Pulse Height Distribution',...
+                'MenuSelectedFcn', @(~,~) obj.callPHD());
+            
             % Add acquisition settings
             uimenu(hMenu, 'Text', 'Set Acquisition Time',...
                 'MenuSelectedFcn', @(~,~) obj.setAcqTimeCallback(),...
@@ -69,6 +73,26 @@ classdef swips_ok_gui_menu < handle
             end
         end
         
+        function callPHD(obj)
+            % Create dialog for acquisition time selection
+            choice = questdlg('Collect Pulse Height Distribition:', ...
+                'Set Number of Samples', ...
+                '1','10','1');
+            
+            % Handle response
+            if ~isempty(choice)
+                try
+                    if strcmp(choice, '1')
+                        obj.parentInst.getPHD(1);
+                    else  % 10 samples
+                        obj.parentInst.getPHD(10);
+                    end
+                catch ME
+                    errordlg(['Error colllecting pulse height distribitions: ' ME.message], 'Error');
+                end
+            end
+        end
+
         function setAcqTimeCallback(obj)
             % Create dialog for acquisition time selection
             choice = questdlg('Select Acquisition Time:', ...

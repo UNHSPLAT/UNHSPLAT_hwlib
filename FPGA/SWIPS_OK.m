@@ -262,6 +262,41 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
+        function getPHD(obj,Nsamples)
+            
+            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec(' 0x40'), 2);  % Get Single Pulse Height
+            
+            persistent buf pv;
+            
+            % Allocate a buffer
+            bytes = 4*1024;     % 1024 32-bit samples
+            buf(bytesAvail,1) = uint8(0);
+            pv = libpointer('uint8Ptr',buf); 
+            
+            calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),4,bytes,pv);
+            data = get(pv,'value');
+            
+            % Fix Endian
+            data = reshape(data,4,length(data)/4);
+            data = reshape([data(4,:);data(3,:);data(2,:);data(1,:)],bytes,1);
+            
+            % the format of the PH word is as follows:
+            %   Bit       31: data valid
+            %   Bits 30 - 25: unused (0)
+            %   Bit       24: anode_active
+            %   Bits 23 - 20: unused (0)
+            %   Bits 19 - 16: anode position (number)
+            %   Bits 15 - 14: unused (0)
+            %   Bits 13 -  0: pulseheight
+            
+            % we only want to report out the valid data. drop all the rest
+            idx = bitand(data, 2^31) ~= 0;
+            pulseheight = bitand(data(idx), 2^14-1);
+            anode_pos = bitshift(bitand(data(idx),2^20-1), -16);
+            anode_active = bitshift(bitand(data(idx),2^24), -24);
+
+        end
 
         function askPPA_ok(obj)
             % acquirePPA_ok - Rev 0, SXL, 8/13/2025
