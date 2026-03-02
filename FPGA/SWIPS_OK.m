@@ -109,7 +109,6 @@ classdef SWIPS_OK < hwDevice
                     obj.Connected = false;
                     return
                 end
-                obj.funcConfig(obj);
             end
         end
 
