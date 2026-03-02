@@ -41,8 +41,7 @@ classdef NewportStageControl < hwDevice
             obj.readFunc = @(x) obj.getAllPositions();
             
             % Set refresh rate to 1 second and reinitialize timer
-            obj.refreshRate = 1;
-            obj.initTimer();
+            obj.Timer.period = 4;
                 
             try
                 obj.asmInfo = NET.addAssembly('Newport.XPS.CommandInterface');

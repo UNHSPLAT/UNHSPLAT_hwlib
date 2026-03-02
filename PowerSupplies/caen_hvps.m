@@ -44,8 +44,7 @@ classdef caen_hvps < hwDevice
             obj.readFunc = @obj.getVals;
             
             % Set refresh rate to 5 seconds and reinitialize timer
-            obj.refreshRate = 5;
-            obj.initTimer();
+            obj.Timer.period = 5;
         end
 
         function con_stat = connectDevice(obj)
