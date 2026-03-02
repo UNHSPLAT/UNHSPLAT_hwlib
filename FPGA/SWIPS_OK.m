@@ -264,17 +264,21 @@ classdef SWIPS_OK < hwDevice
 
         function getPHD(obj,Nsamples)
             
-            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
-            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec(' 0x40'), 2);  % Get Single Pulse Height
-            
             persistent buf pv;
             
             % Allocate a buffer
             bytes = 4*1024;     % 1024 32-bit samples
-            buf(bytesAvail,1) = uint8(0);
+            buf(bytes,1) = uint8(0);
             pv = libpointer('uint8Ptr',buf); 
             
-            calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),4,bytes,pv);
+            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
+            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+            for ind = 0:1:1050
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
+                pause(0.001)
+            end
+              
+            calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
             data = get(pv,'value');
             
             % Fix Endian
