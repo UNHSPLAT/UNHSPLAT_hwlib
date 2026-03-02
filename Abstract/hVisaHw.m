@@ -56,7 +56,6 @@ classdef hVisaHw < hwDevice
                 error("hVisaHw:invalidAddress", "Invalid address! Must be VISA-readable address format...");
             end
             
-            obj.connectDevice();
         end
 
         function connectDevice(obj, varargin)

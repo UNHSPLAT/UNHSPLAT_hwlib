@@ -77,7 +77,8 @@ classdef NewportStageControl < hwDevice
                         obj.Connected = true;
                     else
                         warning('Failed to connect to Newport XPS stage');
-                    end
+                    end               
+                    obj.funcConfig(obj);
                 end
             end
         end

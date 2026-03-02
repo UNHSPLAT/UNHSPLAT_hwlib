@@ -42,7 +42,6 @@ classdef SWIPS_OK < hwDevice
             obj.refreshRate = 10;
             obj.readFunc = @(x) obj.askPPA_ok();
             
-            obj.connectDevice();
         end
 
         function connectDevice(obj)
@@ -110,6 +109,7 @@ classdef SWIPS_OK < hwDevice
                     obj.Connected = false;
                     return
                 end
+                obj.funcConfig(obj);
             end
         end
 
