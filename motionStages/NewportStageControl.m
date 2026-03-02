@@ -60,7 +60,6 @@ classdef NewportStageControl < hwDevice
             % Disconnect from the Newport XPS stage
             if ~isempty(obj.myxps)
                 try
-                    obj.myxps.KillAll();
                     obj.myxps.CloseInstrument;
                 catch
                     % Ignore errors during shutdown
@@ -191,6 +190,7 @@ classdef NewportStageControl < hwDevice
                 % positions = obj.myxps.getCurrentPosition();
                 positions = zeros(1, length(obj.groups))*nan;
                 for i = 1:length(obj.groups)
+                    pause(.01);
                     positions(i) = obj.getPosition(obj.groups(i));
                 end    
             else
