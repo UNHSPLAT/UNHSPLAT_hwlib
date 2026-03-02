@@ -38,7 +38,10 @@ classdef NewportStageControl < hwDevice
             obj.lastRead = zeros(1,length(obj.groups))*nan;
             
             % Set up read function for hwDevice
-            obj.readFunc = @(x) obj.getAllPositions();
+            function reading = readf(x);
+                reading = obj.getAllPositions;
+            end
+            obj.readFunc = @readf;
             
             % Set refresh rate to 1 second and reinitialize timer
             obj.Timer.period = 4;
@@ -184,13 +187,11 @@ classdef NewportStageControl < hwDevice
         end
 
         function positions = getAllPositions(obj)
-            if obj.Connected()
+            if obj.Connected
                 % positions = obj.myxps.getCurrentPosition();
                 positions = zeros(1, length(obj.groups))*nan;
                 for i = 1:length(obj.groups)
-                    if obj.group_status(i)
-                        positions(i) = obj.getPosition(obj.groups(i));
-                    end
+                    positions(i) = obj.getPosition(obj.groups(i));
                 end    
             else
                 positions = zeros(1, length(obj.groups))*nan;
