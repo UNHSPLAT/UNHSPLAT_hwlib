@@ -277,7 +277,7 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
                 pause(0.001)
             end
-              
+               
             calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
             data = get(pv,'value');
             
