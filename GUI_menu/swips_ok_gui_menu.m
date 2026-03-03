@@ -72,23 +72,89 @@ classdef swips_ok_gui_menu < handle
                 end
             end
         end
-        
+
         function callPHD(obj)
-            % Create dialog for acquisition time selection
-            choice = questdlg('Collect Pulse Height Distribition:', ...
-                'Set Number of Samples', ...
-                '1','10','1');
+            % Create figure for pulse height distribution collection inputs
+            fig = figure('Name', 'Pulse Height Distribution', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 300 150], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none');
             
-            % Handle response
-            if ~isempty(choice)
+            % Create UI elements
+            uicontrol('Style', 'text', ...
+                'Position', [10 270 270 30], ...
+                'String', 'Collect a Pulse Height Distribution', ...
+                'FontSize', 12);
+            
+            % Create array to store edit boxes
+            edit_boxes = zeros(1, 2);
+            
+            % Create label
+            uicontrol('Style', 'text', ...
+                'Position', [40 100 100 40], ...
+                'String', 'Number of Samples',...
+                'FontSize', 11);
+            
+            % Create edit box
+            edit_boxes(1) = uicontrol('Style', 'edit', ...
+                'Position', [60 65 60 30], ...
+                'String', num2str(0), ...
+                'FontSize', 10);
+
+            % Create label
+            uicontrol('Style', 'text', ...
+                'Position', [150 85 120 40], ...
+                'String', 'Dwell time (ms)',...
+                'FontSize', 11);
+            
+            % Create edit box
+            edit_boxes(2) = uicontrol('Style', 'edit', ...
+                'Position', [180 65 60 30], ...
+                'String', num2str(1), ...
+                'FontSize', 10);
+            
+            % Create buttons
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [55 15 70 35], ...
+                'String', 'Collect', ...
+                'Callback', @applyCallback);
+            
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [175 15 70 35], ...
+                'String', 'Cancel', ...
+                'Callback', @(~,~) delete(fig));
+            
+            function applyCallback(~, ~)
                 try
-                    if strcmp(choice, '1')
-                        obj.parentInst.getPHD(1);
-                    else  % 10 samples
-                        obj.parentInst.getPHD(10);
+                    % Get values from edit boxes
+                    valSample = str2double(get(edit_boxes(1), 'String'));
+                    
+                    % Validate input
+                    if isnan(valSample) || valSample < 0 || valSample > 1000000 || mod(valSample, 1) ~= 0
+                        errordlg('Invalid number of samples for pulse height distribution %d. Must be an integer between zero and one million.', 'Error');
+                        return;
                     end
+                    Nsamples = valSample;
+
+                    % Get values from edit boxes
+                    valDwell = str2double(get(edit_boxes(1), 'String'));
+                    
+                    % Validate input
+                    if isnan(valDwell) || valDwell < 0 || valDwell > 100 || mod(valDwell, 1) ~= 0
+                        errordlg('Invalid dwell time %d. Must be an integer between 0-100.', 'Error');
+                        return;
+                    end
+                    dwell = valDwell;
+                    
+                    % Collect a PHD with Nsamples
+                    obj.parentInst.getPHD(Nsamples,dwell);
+                    
+                    % Close dialog
+                    delete(fig);
+                    msgbox('Pulse height distribution collected successfully', 'Success');
                 catch ME
-                    errordlg(['Error colllecting pulse height distribitions: ' ME.message], 'Error');
+                    errordlg(['Error collecting pulse height distribution: ' ME.message], 'Error');
                 end
             end
         end

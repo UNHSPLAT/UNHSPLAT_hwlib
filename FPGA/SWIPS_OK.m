@@ -262,7 +262,7 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples)
+        function getPHD(obj,Nsamples,dwellTime)
             
             persistent buf pv;
             
@@ -275,7 +275,7 @@ classdef SWIPS_OK < hwDevice
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
             for ind = 0:1:1050
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
-                pause(0.001)
+                pause(dwellTime*1E-3)
             end
                
             calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
@@ -283,8 +283,11 @@ classdef SWIPS_OK < hwDevice
             
             % Fix Endian
             data = reshape(data,4,length(data)/4);
-            data = reshape([data(4,:);data(3,:);data(2,:);data(1,:)],bytes,1);
-            
+            data32 = uint32(zeros(1,bytes/4));
+            for ii=1:length(data)
+                data32(ii) = typecast(data(:,ii),'uint32');
+            end
+
             % the format of the PH word is as follows:
             %   Bit       31: data valid
             %   Bits 30 - 25: unused (0)
@@ -295,10 +298,35 @@ classdef SWIPS_OK < hwDevice
             %   Bits 13 -  0: pulseheight
             
             % we only want to report out the valid data. drop all the rest
-            idx = bitand(data, 2^31) ~= 0;
-            pulseheight = bitand(data(idx), 2^14-1);
-            anode_pos = bitshift(bitand(data(idx),2^20-1), -16);
-            anode_active = bitshift(bitand(data(idx),2^24), -24);
+            idx = bitand(data32, 2^31) ~= 0;
+            pulseheight = bitand(data32(idx), 2^14-1);
+            anode_pos = bitshift(bitand(data32(idx),2^20-1), -16);
+            anode_active = bitshift(bitand(data32(idx),2^24), -24);
+
+            % Plot
+            min = 200;
+            max = 2000;
+            stepSize = 20;
+            edges = min:stepSize:max;
+            numBins = (max-min)/stepSize;
+            histArray = zeros(numBins,16);
+            
+            histVal = zeros(length(find(anode_pos == mode(anode_pos))),16);
+            
+            for i=1:16
+                indices = find(anode_pos == i);
+                if(~isempty(indices))
+                    histVal(1:length(pulseheight(indices)),i) = pulseheight(indices);
+                    % histogram(selectedValues, numBins); hold on
+                end
+            end
+            
+            for i=1:16
+               data = histVal(:,i);
+               h = histogram(data(data~=0),edges); hold on;
+               histArray(:,i) = h.Values;
+            end
+            legend({'Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'});
 
         end
 
