@@ -426,6 +426,35 @@ classdef SWIPS_OK < hwDevice
                 connected = false;
             end
         end
+        
+        function count = checkAlivenessCounter(obj)
+            % checkAlivenessCounter - Read the aliveness counter from the FPGA
+            %   Returns the 32-bit aliveness counter value from WireOut address 0x21
+            %   Returns NaN if device is not connected
+            %
+            % The aliveness counter is a 32-bit counter that increments continuously
+            % to indicate the FPGA is alive and responding
+            
+            count = NaN;
+            
+            % Check if device is connected
+            if ~obj.Connected
+                warning('Device not connected. Cannot read aliveness counter.');
+                return;
+            end
+            
+            try
+                % Update WireOuts to get latest values from FPGA
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+                
+                % Read aliveness counter from address 0x21
+                count = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('21'));
+                
+            catch ME
+                warning('OpalKelly:ReadError', 'Error reading aliveness counter: %s', ME.message);
+                count = NaN;
+            end
+        end
     end
 end
 
