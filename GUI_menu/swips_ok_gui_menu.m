@@ -99,7 +99,7 @@ classdef swips_ok_gui_menu < handle
             % Create edit box
             edit_boxes(1) = uicontrol('Style', 'edit', ...
                 'Position', [60 65 60 30], ...
-                'String', num2str(0), ...
+                'String', num2str(1000), ...
                 'FontSize', 10);
 
             % Create label
@@ -138,7 +138,7 @@ classdef swips_ok_gui_menu < handle
                     Nsamples = valSample;
 
                     % Get values from edit boxes
-                    valDwell = str2double(get(edit_boxes(1), 'String'));
+                    valDwell = str2double(get(edit_boxes(2), 'String'));
                     
                     % Validate input
                     if isnan(valDwell) || valDwell < 0 || valDwell > 100 || mod(valDwell, 1) ~= 0
