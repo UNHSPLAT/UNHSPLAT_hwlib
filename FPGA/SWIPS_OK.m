@@ -21,7 +21,7 @@ classdef SWIPS_OK < hwDevice
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
         acq_timer = timer;
-
+        aliveCount = 0;
         dropCount = 0;
     end
 
@@ -300,8 +300,9 @@ classdef SWIPS_OK < hwDevice
             
             rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
             rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
-            ppaCnt = zeros(1,16);       % empty array for ppa count
-            calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);       % get the final wireout (count values)
+            ppaCnt = zeros(1,16);       % empty array for ppa count  
+            
+            obj.aliveCount = obj.checkAlivenessCounter(); % get the final wireout (count values) and increment aliveness
 
             for i = 0:15
                 ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
