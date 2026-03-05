@@ -131,8 +131,8 @@ classdef swips_ok_gui_menu < handle
                     valSample = str2double(get(edit_boxes(1), 'String'));
                     
                     % Validate input
-                    if isnan(valSample) || valSample < 0 || valSample > 1000000 || mod(valSample, 1) ~= 0
-                        errordlg('Invalid number of samples for pulse height distribution %d. Must be an integer between zero and one million.', 'Error');
+                    if isnan(valSample) || valSample < 0 || valSample > 10000001 || mod(valSample, 1) ~= 0
+                        errordlg('Invalid number of samples for pulse height distribution %d. Must be an integer between zero and ten million.', 'Error');
                         return;
                     end
                     Nsamples = valSample;

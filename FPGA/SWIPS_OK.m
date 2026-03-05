@@ -292,7 +292,7 @@ classdef SWIPS_OK < hwDevice
             calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
 
-            ind = 1
+            ind = 1;
             while ind <= Nsamples
                 if mod(ind,1024) == 0 || ind == Nsamples
                        
@@ -355,8 +355,7 @@ classdef SWIPS_OK < hwDevice
             
             %Write to file
             t = array2table(histData4file,'VariableNames',header);
-            writetable(t,obj.App.DataDir+'\PHD.csv','WriteMode','overwrite');
-            
+            writetable(t,obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv','WriteMode','overwrite');
             %Plot Pulse Height Distribution in a new window
             f = figure('Name','Pulse Height Distribution',...
                        'NumberTitle','off',...
