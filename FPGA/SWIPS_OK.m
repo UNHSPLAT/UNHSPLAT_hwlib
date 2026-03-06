@@ -20,7 +20,7 @@ classdef SWIPS_OK < hwDevice
                                    % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
-        acq_timer = timer;
+        acq_timer = [];
         aliveCount = 0;
         dropCount = 0;
     end
@@ -122,6 +122,7 @@ classdef SWIPS_OK < hwDevice
 
         function disconnectDevice(obj)
             obj.stopTimer();
+            obj.cleanupAcqTimer();
             
             if libisloaded('okFrontPanel')
                 calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
@@ -130,10 +131,26 @@ classdef SWIPS_OK < hwDevice
             
             obj.Connected = false;
         end
+
+        function cleanupAcqTimer(obj)
+            % Safely stop and delete the acquisition dwell timer.
+            try
+                if ~isempty(obj.acq_timer) && isvalid(obj.acq_timer)
+                    if strcmp(obj.acq_timer.Running, 'on')
+                        stop(obj.acq_timer);
+                    end
+                    delete(obj.acq_timer);
+                end
+            catch
+            end
+            obj.acq_timer = [];
+        end
         
         function delete(obj)
             if obj.Connected
                 obj.disconnectDevice();
+            else
+                obj.cleanupAcqTimer();
             end
             delete@hwDevice(obj);
         end 
@@ -283,12 +300,12 @@ classdef SWIPS_OK < hwDevice
 
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
 
+                obj.cleanupAcqTimer();
                 obj.acq_timer = timer('StartDelay', 10^obj.acq_time,...
                                         'Name', 'swips_OK_dwell_Timer',...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
-                                        'BusyMode','queue',...
-                                        'StopFcn',@(~,~) delete(obj.acq_timer));
+                                        'BusyMode','queue');
                 start(obj.acq_timer);
             else
                 obj.read_nan();
@@ -337,6 +354,10 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.rawLCnt = rawLCnt;
             obj.lastRead.rawUCnt = rawUCnt;
             obj.lastRead.PPACnt = ppaCnt;
+
+            % Timer has now stopped (singleShot). Delete it so no stale
+            % timer objects accumulate between acquisition cycles.
+            obj.cleanupAcqTimer();
         end
 
         function readPPA_ok(obj,~,~)
