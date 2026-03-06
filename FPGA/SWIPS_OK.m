@@ -294,6 +294,14 @@ classdef SWIPS_OK < hwDevice
 
             % Clear Counters
             if obj.Connected
+                % Guard: skip if a previous acquisition is still running
+                if ~isempty(obj.acq_timer) && isvalid(obj.acq_timer) && strcmp(obj.acq_timer.Running, 'on')
+                    obj.dropCount = obj.dropCount + 1;
+                    warning('SWIPS_OK:AcqBusy', ...
+                        'Acquisition already in progress — skipping this cycle (drop #%d).', obj.dropCount);
+                    return;
+                end
+
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 2);  % Clear PPA Counters
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 3);  % Clear Upper Raw Counters
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
