@@ -18,10 +18,7 @@ classdef flukeHydra2620A < multimeter
             obj@multimeter(address,funcConfig);
             obj.lastRead = [nan,nan,nan,nan];
 
-            function stuff = read_it(self)
-                stuff = self.read_scan();
-            end
-            obj.readFunc =@read_it;
+            obj.readFunc =@(self)self.read_scan_async;
         end
 
         function dataOut = read_scan(obj)
@@ -30,11 +27,11 @@ classdef flukeHydra2620A < multimeter
             dataOut = str2double(tokes);
         end
 
-        function ask_async(obj)
-            obj.devRW_async('LAST?',@obj.read_async);
+        function read_scan_async(obj)
+            obj.devRW_async('LAST?',@(~,~)obj.listen_async);
         end
 
-        function read_async(obj)
+        function listen_async(obj)
             obj.devR_async();
             tokes = regexp(strtrim(obj.dataOut),',','split');
             obj.lastRead = str2double(tokes);
