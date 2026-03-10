@@ -190,7 +190,7 @@ classdef NewportStageControl < hwDevice
                 % positions = obj.myxps.getCurrentPosition();
                 positions = zeros(1, length(obj.groups))*nan;
                 for i = 1:length(obj.groups)
-                    pause(.01);
+                    pause(.05);
                     positions(i) = obj.getPosition(obj.groups(i));
                 end    
             else
