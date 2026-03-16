@@ -147,7 +147,9 @@ classdef NewportStageControl < hwDevice
         % Set and get position methods
         function setPosition(obj,group,position)
             if obj.Connected
+                obj.myxps.OpenInstrument(obj.Address,5001,1000);
                 code = obj.myxps.GroupMoveAbsolute(group,position,1);
+                obj.myxps.CloseInstrument;
                 if code ~= 0
                     warning('Failed to set position: %s', code);
                 end
@@ -157,20 +159,28 @@ classdef NewportStageControl < hwDevice
         end
         
         function val = getPosition(obj,group)
+
+            
             if obj.Connected
+                open_code=obj.myxps.OpenInstrument(obj.Address,5001,1000);
+                if open_code == 0
+                    obj.Connected = true;
+                else
+                    warning('Failed to connect to Newport XPS stage');
+                end
                 trynum = 0;
                 while trynum <3
                     try
                         % For some reason calling the group position on just the group followed by the pos
                         % prevents error state
                         [err,vals,errnum] = obj.myxps.GroupPositionCurrentGet(char(group),1);
-%                         [err,vals,errnum] = obj.myxps.GroupPositionCurrentGet([char(group),'.pos'],1);
                         val = vals.double; 
                         code = err;
                         if code ~= 0
                             fprintf('Failed to get position: Err = %s, Trynum = %d\n',string(errnum),trynum);
                             trynum = trynum+1;
                         else
+                            obj.myxps.CloseInstrument;
                             return
                         end
                     catch
