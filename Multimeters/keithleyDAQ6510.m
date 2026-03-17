@@ -16,6 +16,7 @@ classdef keithleyDAQ6510 < multimeter
             end
             obj@multimeter(address,funcConfig);
             obj.lastRead = [nan,nan,nan];
+            obj.readFunc = @(x) x.performScan(1,3);
         end
         
         function val = measure(obj)

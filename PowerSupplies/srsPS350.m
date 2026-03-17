@@ -26,7 +26,7 @@ classdef srsPS350 < srsHVPS
             end
             obj@srsHVPS(address,funcConfig);
             obj.lastRead = nan;
-
+            obj.readFunc = @(x) x.measVasync();
         end
     end
 end
