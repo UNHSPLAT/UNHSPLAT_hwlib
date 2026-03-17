@@ -41,6 +41,16 @@ classdef webpowerstrip < hwDevice
 
         function connectDevice(obj)
             if ~ obj.Connected
+
+                if isempty(obj.username) || isempty(obj.password)
+                    obj.logon();
+                    if isempty(obj.username) || isempty(obj.password)
+                        warning('webpowerstrip:noCredentials', ...
+                            'Connection aborted: no credentials provided for %s', obj.address);
+                        return
+                    end
+                end
+
                 %Check connection by asking for own ip address
                 cmdr = obj.buildCurlRestapiAsk('cred/ip_address/');
                 [open_code,cmdout]=system(cmdr);
