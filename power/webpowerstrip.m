@@ -10,6 +10,7 @@ classdef webpowerstrip < hwDevice
         address = '';
         username = '';
         password = '';
+        readListen
     end
     
     methods
@@ -30,7 +31,12 @@ classdef webpowerstrip < hwDevice
             obj.address = Address;
             obj.username = username;
             obj.password = password;
-            obj.readFunc = @(x) x.checkState();
+
+            function state = reader(x)
+                state = x.checkState();
+            end
+
+            obj.readFunc = @reader;
         end
         
         function disconnectDevice(obj)
@@ -66,6 +72,29 @@ classdef webpowerstrip < hwDevice
                 end               
                 obj.funcConfig(obj);
             end
+        end
+
+        function startCollect(obj)
+            obj.readListen = addlistener(obj,'lastRead','PostSet',@obj.readState);
+            obj.readListen.Recursive = true;
+            obj.readState()
+        end
+
+        function stopCollect(obj)
+            obj.readListen.Enabled = false;
+            delete(obj.readListen);
+        end
+            
+        function readState(obj,~,~)
+            if obj.Connected
+                display(datetime('now'));
+                pause(4);
+                drawnow();
+                obj.read();
+            else
+                display('pass');
+            end
+
         end
 
         function cmdout = checkState(obj,nOutlet)
