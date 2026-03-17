@@ -83,14 +83,26 @@ classdef webpowerstrip < hwDevice
             cmdout = obj.parseCurlOutput(cmdout);
         end
 
+        function cmdout = setOff(obj, nOutlet)
+            % Build the curl command string for the given outlet selector
+            cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=false" "http://%s/restapi/relay/outlets/=%d/state/"', ...
+                obj.username, obj.password, obj.address, nOutlet);
+            [status,cmdout] = system(cmdr);
+            cmdout = obj.parseCurlOutput(cmdout);
+        end
     end
 
     methods (Access = private)
         function result = parseCurlOutput(~, raw)
-            % Strip curl progress header lines and decode the JSON payload
+            % Strip curl progress header lines and decode the JSON payload.
+            % If no data was returned (e.g. successful PUT with no body), return [].
             lines = strtrim(strsplit(raw, newline));
             lines = lines(~cellfun(@isempty, lines));
-            result = jsondecode(lines{end});
+            try
+                result = jsondecode(lines{end});
+            catch
+                result = [];
+            end
         end
 
         function cmd = buildCurlRestapiAsk(obj, endstring)
