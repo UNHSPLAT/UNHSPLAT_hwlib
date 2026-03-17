@@ -48,15 +48,20 @@ classdef webpowerstrip < hwDevice
 
         function connectDevice(obj)
             if ~ obj.Connected
-                if ~isempty(obj.myxps)
-                    open_code=obj.myxps.OpenInstrument(obj.Address,5001,1000);
-                    if open_code == 0
-                        obj.Connected = true;
-                    else
-                        warning('Failed to connect to Newport XPS stage');
-                    end               
-                    obj.funcConfig(obj);
-                end
+                %Check connection by asking for own ip address
+                cmdr = obj.buildCurlRestapiAsk('cred/ip_address/');
+                [open_code,cmdout]=system(cmdr);
+                cmdout = obj.parseCurlOutput(cmdout);
+                
+                host = java.net.InetAddress.getLocalHost();
+                ipAddress = char(host.getHostAddress());
+                
+                if open_code == 0 && strcmp(cmdout, ipAddress)
+                    obj.Connected = true;
+                else
+                    warning('Failed to connect to Newport XPS stage');
+                end               
+                obj.funcConfig(obj);
             end
         end
 
@@ -71,18 +76,29 @@ classdef webpowerstrip < hwDevice
             elseif isinteger(nOutlet)
                 cout = sprintf('=%d',nOutlet);
             end
-
-            cmdr = sprintf("curl -u %s:%s http://%s/restapi/relay/outlets/%s/state/",obj.username,obj.password,obj.address,cout);
+            cmdr = obj.buildCurlRestapiAsk(sprintf(...
+                'relay/outlets/%s/state/%s', cout));
 
             [status,cmdout] = system(cmdr);
-
-            % Parse curl output: strip progress header lines, decode JSON from last line
-            lines = strtrim(strsplit(cmdout, newline));
-            lines = lines(~cellfun(@isempty, lines));
-            cmdout = jsondecode(lines{end});
+            cmdout = obj.parseCurlOutput(cmdout);
             
         end
 
+    end
+
+    methods (Access = private)
+        function result = parseCurlOutput(~, raw)
+            % Strip curl progress header lines and decode the JSON payload
+            lines = strtrim(strsplit(raw, newline));
+            lines = lines(~cellfun(@isempty, lines));
+            result = jsondecode(lines{end});
+        end
+
+        function cmd = buildCurlRestapiAsk(obj, endstring)
+            % Build the curl command string for the given outlet selector
+            cmd = sprintf("curl -u %s:%s http://%s/restapi/%s", ...
+                obj.username, obj.password, obj.address, endstring);
+        end
     end
 end
 
