@@ -33,17 +33,9 @@ classdef webpowerstrip < hwDevice
         end
         
         function disconnectDevice(obj)
-            % Disconnect from the Newport XPS stage
-            if ~isempty(obj.myxps)
-                try
-                    obj.myxps.CloseInstrument;
-                catch
-                    % Ignore errors during shutdown
-                end
-            end
             obj.stopTimer();
             obj.Connected = false;
-            obj.lastRead = nan;
+            obj.lastRead = obj.lastRead*nan;
         end
 
         function connectDevice(obj)
@@ -59,7 +51,7 @@ classdef webpowerstrip < hwDevice
                 if open_code == 0 && strcmp(cmdout, ipAddress)
                     obj.Connected = true;
                 else
-                    warning('Failed to connect to Newport XPS stage');
+                    warning(sprintf('Failed to connect to webpowerstrip:%s',obj.address));
                 end               
                 obj.funcConfig(obj);
             end
@@ -81,7 +73,14 @@ classdef webpowerstrip < hwDevice
 
             [status,cmdout] = system(cmdr);
             cmdout = obj.parseCurlOutput(cmdout);
-            
+        end
+
+        function cmdout = setOn(obj, nOutlet)
+            % Build the curl command string for the given outlet selector
+            cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=true" "http://%s/restapi/relay/outlets/=%d/state/"', ...
+                obj.username, obj.password, obj.address, nOutlet);
+            [status,cmdout] = system(cmdr);
+            cmdout = obj.parseCurlOutput(cmdout);
         end
 
     end
