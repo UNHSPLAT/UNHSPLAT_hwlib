@@ -75,6 +75,11 @@ classdef webpowerstrip < hwDevice
             cmdr = sprintf("curl -u %s:%s http://%s/restapi/relay/outlets/%s/state/",obj.username,obj.password,obj.address,cout);
 
             [status,cmdout] = system(cmdr);
+
+            % Parse curl output: strip progress header lines, decode JSON from last line
+            lines = strtrim(strsplit(cmdout, newline));
+            lines = lines(~cellfun(@isempty, lines));
+            cmdout = jsondecode(lines{end});
             
         end
 
