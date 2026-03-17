@@ -30,6 +30,7 @@ classdef webpowerstrip < hwDevice
             obj.address = Address;
             obj.username = username;
             obj.password = password;
+            obj.readFunc = @(x) x.checkState();
         end
         
         function disconnectDevice(obj)
