@@ -18,8 +18,8 @@ classdef webpowerstrip < hwDevice
             arguments
                 Address string
                 funcConfig = @(x) x
-                username = 'admin'
-                password = '1234'
+                username = ''
+                password = ''
             end
             % Call parent constructor
             obj@hwDevice(funcConfig);
@@ -75,20 +75,30 @@ classdef webpowerstrip < hwDevice
             cmdout = obj.parseCurlOutput(cmdout);
         end
 
-        function cmdout = setOn(obj, nOutlet)
-            % Build the curl command string for the given outlet selector
+        function setOn(obj, nOutlet)
             cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=true" "http://%s/restapi/relay/outlets/=%d/state/"', ...
                 obj.username, obj.password, obj.address, nOutlet);
-            [status,cmdout] = system(cmdr);
-            cmdout = obj.parseCurlOutput(cmdout);
+            [status, cmdout] = system(cmdr);
+            obj.checkCurlError(status, cmdout, nOutlet, 'setOn');
         end
 
-        function cmdout = setOff(obj, nOutlet)
-            % Build the curl command string for the given outlet selector
+        function setOff(obj, nOutlet)
             cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=false" "http://%s/restapi/relay/outlets/=%d/state/"', ...
                 obj.username, obj.password, obj.address, nOutlet);
-            [status,cmdout] = system(cmdr);
-            cmdout = obj.parseCurlOutput(cmdout);
+            [status, cmdout] = system(cmdr);
+            obj.checkCurlError(status, cmdout, nOutlet, 'setOff');
+        end
+
+        function logon(obj)
+            % Prompt the user for credentials via a dialog box
+            answer = inputdlg({'Username', 'Password'}, ...
+                sprintf('Log on to webpowerstrip (%s)', obj.address), ...
+                [1 40; 1 40], {obj.username, obj.password});
+            if isempty(answer)
+                return  % user cancelled
+            end
+            obj.username = answer{1};
+            obj.password = answer{2};
         end
     end
 
@@ -109,6 +119,20 @@ classdef webpowerstrip < hwDevice
             % Build the curl command string for the given outlet selector
             cmd = sprintf("curl -u %s:%s http://%s/restapi/%s", ...
                 obj.username, obj.password, obj.address, endstring);
+        end
+
+        function checkCurlError(obj, status, raw, nOutlet, caller)
+            % Warn if curl returned a non-zero exit code or a JSON error payload
+            if status ~= 0
+                warning('webpowerstrip:%s: curl failed (exit code %d) for outlet %d on %s', ...
+                    caller, status, nOutlet, obj.address);
+                return
+            end
+            response = obj.parseCurlOutput(raw);
+            if ~isempty(response)
+                warning('webpowerstrip:%s: unexpected response for outlet %d on %s: %s', ...
+                    caller, nOutlet, obj.address, jsonencode(response));
+            end
         end
     end
 end
