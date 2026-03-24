@@ -107,9 +107,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             %RESTARTTIMER Restarts timer if error
 
             % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
+            obj.stopTimer();
 
             % Restart timer
             if obj.Connected

@@ -103,9 +103,9 @@ classdef webpowerstrip < hwDevice
                 nOutlet = 'all'
             end
 
-            if nOutlet=='all'
+            if strcmp(nOutlet,'all')
                 cout = 'all;';
-            elseif isinteger(nOutlet)
+            elseif isnumeric(nOutlet)
                 cout = sprintf('=%d',nOutlet);
             end
             cmdr = obj.buildCurlRestapiAsk(sprintf(...
@@ -127,9 +127,9 @@ classdef webpowerstrip < hwDevice
                 nOutlet = 'all'
             end
 
-            if nOutlet=='all'
+            if strcmp(nOutlet,'all')
                 cout = 'all;';
-            elseif isinteger(nOutlet)
+            elseif isnumeric(nOutlet)
                 cout = sprintf('=%d',nOutlet);
             end
             cmdr = obj.buildCurlRestapiAsk(sprintf(...
