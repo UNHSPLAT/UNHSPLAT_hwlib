@@ -26,7 +26,7 @@ classdef webpowerstrip < hwDevice
             obj@hwDevice(funcConfig);
             
             obj.Connected = false;
-            obj.lastRead = ones(8)*nan;
+            obj.lastRead = ones(8,1)*nan;
 
             obj.address = Address;
             obj.username = username;
@@ -112,19 +112,51 @@ classdef webpowerstrip < hwDevice
                 'relay/outlets/%s/state/%s', cout));
 
             [status,cmdout] = system(cmdr);
-            cmdout = obj.parseCurlOutput(cmdout);
+            if status == 0
+                cmdout = obj.parseCurlOutput(cmdout);
+                if length(cmdout) ~= 8
+                    cmdout = ones(8,1)*nan;
+                end
+
+            end
+        end
+
+        function cmdout = checkTransientState(obj,nOutlet)
+            arguments
+                obj
+                nOutlet = 'all'
+            end
+
+            if nOutlet=='all'
+                cout = 'all;';
+            elseif isinteger(nOutlet)
+                cout = sprintf('=%d',nOutlet);
+            end
+            cmdr = obj.buildCurlRestapiAsk(sprintf(...
+                'relay/outlets/%s/transient_state/%s', cout));
+
+            [status,cmdout] = system(cmdr);
+            if status == 0
+                cmdout = obj.parseCurlOutput(cmdout);
+                if length(cmdout) ~= 8
+                    cmdout = ones(8,1)*nan;
+                end
+
+            end
         end
 
         function setOn(obj, nOutlet)
+            cmdOutlet = nOutlet-1;
             cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=true" "http://%s/restapi/relay/outlets/=%d/state/"', ...
-                obj.username, obj.password, obj.address, nOutlet);
+                obj.username, obj.password, obj.address, cmdOutlet);
             [status, cmdout] = system(cmdr);
             obj.checkCurlError(status, cmdout, nOutlet, 'setOn');
         end
 
         function setOff(obj, nOutlet)
+            cmdOutlet = nOutlet-1;
             cmdr = sprintf('curl -u %s:%s  -X PUT -H "X-CSRF: x" --data "value=false" "http://%s/restapi/relay/outlets/=%d/state/"', ...
-                obj.username, obj.password, obj.address, nOutlet);
+                obj.username, obj.password, obj.address, cmdOutlet);
             [status, cmdout] = system(cmdr);
             obj.checkCurlError(status, cmdout, nOutlet, 'setOff');
         end
