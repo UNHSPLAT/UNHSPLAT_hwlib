@@ -309,7 +309,7 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
 
                 obj.cleanupAcqTimer();
-                obj.acq_timer = timer('StartDelay', 10^obj.acq_time,...
+                obj.acq_timer = timer('StartDelay', 10^obj.acq_time+.2,...
                                         'Name', 'swips_OK_dwell_Timer',...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
@@ -321,8 +321,7 @@ classdef SWIPS_OK < hwDevice
         end
 
         function listenPPA_ok(obj)
-             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
-            
+             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room
             rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
             rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
             ppaCnt = zeros(1,16);       % empty array for ppa count  
@@ -362,6 +361,7 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.rawLCnt = rawLCnt;
             obj.lastRead.rawUCnt = rawUCnt;
             obj.lastRead.PPACnt = ppaCnt;
+            
 
             % Timer has now stopped (singleShot). Delete it so no stale
             % timer objects accumulate between acquisition cycles.
