@@ -153,9 +153,53 @@ classdef swips_ok_gui_menu < handle
                     % Close dialog
                     delete(fig);
                     msgbox('Pulse height distribution collected successfully', 'Success');
+                     %Plot Pulse Height Distribution in a new window
+                    f = figure('Name','Pulse Height Distribution',...
+                            'NumberTitle','off',...
+                            'Color','w');
+
+                    ax = axes('Parent',f,'Position',[0.1 0.15 0.85 0.78]);
+                    for i=1:16
+                        histogram('BinEdges',obj.parentInst.pulseHeightEdges,'BinCounts',obj.parentInst.pulseHeightData(:,i+1)); hold on;
+                    end
+                    legend({'Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'}); 
+                    xlabel(ax, "Pulse Amplitude [arb.]");
+                    ylabel(ax,'Counts');
+
+                    % Save data button
+                    uicontrol('Parent', f, ...
+                        'Style', 'pushbutton', ...
+                        'String', 'Save Data to File...', ...
+                        'Units', 'normalized', ...
+                        'Position', [0.35 0.01 0.3 0.06], ...
+                        'Callback', @(~,~) obj.savePHDToFile());
+
+
+
                 catch ME
                     errordlg(['Error collecting pulse height distribution: ' ME.message], 'Error');
                 end
+            end
+        end
+
+        function savePHDToFile(obj)
+            % Prompt user for save path and write pulse height data to CSV
+            [fname, fpath] = uiputfile({'*.csv','CSV Files (*.csv)'; '*.*','All Files'}, ...
+                'Save Pulse Height Distribution', 'pulseHeightData.csv');
+            if isequal(fname, 0)
+                return;  % User cancelled
+            end
+
+            try
+                header = {'Bin Center', 'Anode 0', 'Anode 1', 'Anode 2', 'Anode 3', ...
+                          'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', ...
+                          'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', ...
+                          'Anode 14', 'Anode 15'};
+                t = array2table(obj.parentInst.pulseHeightData, 'VariableNames', header);
+                writetable(t, fullfile(fpath, fname), 'WriteMode', 'overwrite');
+                msgbox(sprintf('Data saved to %s', fullfile(fpath, fname)), 'Saved');
+            catch ME
+                errordlg(['Error saving data: ' ME.message], 'Error');
             end
         end
 

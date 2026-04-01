@@ -5,7 +5,6 @@ classdef SWIPS_OK < hwDevice
         unit string = ""%
         Address string = ""%
         asmInfo %
-        App %reference to labGUI
     end
 
     properties (Constant)
@@ -24,20 +23,19 @@ classdef SWIPS_OK < hwDevice
         acq_timer = [];
         aliveCount = 0;
         dropCount = 0;
+        pulseHeightData = [];
+        pulseHeightEdges = [];
     end
 
     methods
-        function obj = SWIPS_OK(app, bitfile, funcConfig)
+        function obj = SWIPS_OK(bitfile, funcConfig)
             arguments
-                app;
                 bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
             
             % Call parent constructor
             obj@hwDevice(funcConfig);
-
-            obj.App = app; %store GUI reference
 
             obj.bitfile = bitfile;
             obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
@@ -282,9 +280,8 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples,dwellTime)
+        function getPHD(obj,Nsamples,dwellTime,data_file)
 
-            obj.App.genTestSequence(); 
 
             persistent buf pv;
             
@@ -370,20 +367,11 @@ classdef SWIPS_OK < hwDevice
             end     
             
             %Write to file
-            t = array2table(histData4file,'VariableNames',header);
-            writetable(t,obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv','WriteMode','overwrite');
-            %Plot Pulse Height Distribution in a new window
-            f = figure('Name','Pulse Height Distribution',...
-                       'NumberTitle','off',...
-                       'Color','w');
-
-            ax = axes('Parent',f);
-            for i=1:16
-                histogram('BinEdges',edges,'BinCounts',histData4file(:,i+1)); hold on;
-            end
-            legend({'Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'}); 
-            xlabel(ax, "Pulse Amplitude [arb.]");
-            ylabel(ax,'Counts');
+            % t = array2table(histData4file,'VariableNames',header);
+            % obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv',
+            % writetable(t,data_file,'WriteMode','overwrite');
+            obj.pulseHeightData = histData4file;
+            obj.pulseHeightEdges = edges;
              
         end
 
