@@ -38,11 +38,13 @@ classdef NewportStageControl < hwDevice
             obj.lastRead = zeros(1,length(obj.groups))*nan;
             
             % Set up read function for hwDevice
-            obj.readFunc = @(x) obj.getAllPositions();
+            function reading = readf(x);
+                reading = obj.getAllPositions;
+            end
+            obj.readFunc = @readf;
             
             % Set refresh rate to 1 second and reinitialize timer
-            obj.refreshRate = 1;
-            obj.initTimer();
+            obj.Timer.period = 4;
                 
             try
                 obj.asmInfo = NET.addAssembly('Newport.XPS.CommandInterface');
@@ -58,7 +60,6 @@ classdef NewportStageControl < hwDevice
             % Disconnect from the Newport XPS stage
             if ~isempty(obj.myxps)
                 try
-                    obj.myxps.KillAll();
                     obj.myxps.CloseInstrument;
                 catch
                     % Ignore errors during shutdown
@@ -77,7 +78,8 @@ classdef NewportStageControl < hwDevice
                         obj.Connected = true;
                     else
                         warning('Failed to connect to Newport XPS stage');
-                    end
+                    end               
+                    obj.funcConfig(obj);
                 end
             end
         end
@@ -145,7 +147,9 @@ classdef NewportStageControl < hwDevice
         % Set and get position methods
         function setPosition(obj,group,position)
             if obj.Connected
+                obj.myxps.OpenInstrument(obj.Address,5001,1000);
                 code = obj.myxps.GroupMoveAbsolute(group,position,1);
+                obj.myxps.CloseInstrument;
                 if code ~= 0
                     warning('Failed to set position: %s', code);
                 end
@@ -155,20 +159,28 @@ classdef NewportStageControl < hwDevice
         end
         
         function val = getPosition(obj,group)
+
+            
             if obj.Connected
+                open_code=obj.myxps.OpenInstrument(obj.Address,5001,1000);
+                if open_code == 0
+                    obj.Connected = true;
+                else
+                    warning('Failed to connect to Newport XPS stage');
+                end
                 trynum = 0;
                 while trynum <3
                     try
                         % For some reason calling the group position on just the group followed by the pos
                         % prevents error state
                         [err,vals,errnum] = obj.myxps.GroupPositionCurrentGet(char(group),1);
-%                         [err,vals,errnum] = obj.myxps.GroupPositionCurrentGet([char(group),'.pos'],1);
                         val = vals.double; 
                         code = err;
                         if code ~= 0
                             fprintf('Failed to get position: Err = %s, Trynum = %d\n',string(errnum),trynum);
                             trynum = trynum+1;
                         else
+                            obj.myxps.CloseInstrument;
                             return
                         end
                     catch
@@ -184,13 +196,12 @@ classdef NewportStageControl < hwDevice
         end
 
         function positions = getAllPositions(obj)
-            if obj.Connected()
+            if obj.Connected
                 % positions = obj.myxps.getCurrentPosition();
                 positions = zeros(1, length(obj.groups))*nan;
                 for i = 1:length(obj.groups)
-                    if obj.group_status(i)
-                        positions(i) = obj.getPosition(obj.groups(i));
-                    end
+                    pause(.05);
+                    positions(i) = obj.getPosition(obj.groups(i));
                 end    
             else
                 positions = zeros(1, length(obj.groups))*nan;

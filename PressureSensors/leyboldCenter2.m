@@ -28,6 +28,7 @@ classdef leyboldCenter2 < hVisaHw
             obj.hVisa.BaudRate = 9600;
             obj.hVisa.Terminator = 'CR';
             obj.lastRead = [nan,nan];
+            obj.readFunc = @(x) x.readPressure_async();
         end
         
         function dataOut = leyboldRW(obj,inStr)

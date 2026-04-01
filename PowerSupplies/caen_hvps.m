@@ -44,20 +44,20 @@ classdef caen_hvps < hwDevice
             obj.readFunc = @obj.getVals;
             
             % Set refresh rate to 5 seconds and reinitialize timer
-            obj.refreshRate = 5;
-            obj.initTimer();
+            obj.Timer.period = 5;
         end
 
         function con_stat = connectDevice(obj)
             if ~obj.Connected
                 try
-                con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
-                display(con_stat);
-                if con_stat
-                    obj.Connected = true;
-                else 
-                    obj.Connected = false;
-                end
+                    con_stat = HVPS_connect(obj.equip_config_folder, obj.equip_config_filename, obj.hvps_section, obj.port_key);
+                    display(con_stat);
+                    if con_stat
+                        obj.Connected = true;
+                    else 
+                        obj.Connected = false;
+                    end
+                    obj.funcConfig(obj);
                 catch
                     warning("Could not connect to CAEN HVPS");
                     obj.Connected = false;

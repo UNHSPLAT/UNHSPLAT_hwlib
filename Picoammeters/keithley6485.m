@@ -19,6 +19,7 @@ classdef keithley6485 < hVisaHw
             end
             obj@hVisaHw(address,funcConfig);
             obj.lastRead = nan;
+            obj.readFunc = @(x) x.readDev();
         end
 
         function dataOut = readDev(obj)

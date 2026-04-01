@@ -21,8 +21,8 @@ classdef SWIPS_OK < hwDevice
                                    % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
-        acq_timer = timer;
-
+        acq_timer = [];
+        aliveCount = 0;
         dropCount = 0;
     end
 
@@ -46,7 +46,6 @@ classdef SWIPS_OK < hwDevice
             obj.refreshRate = 10;
             obj.readFunc = @(x) obj.askPPA_ok();
             
-            obj.connectDevice();
         end
 
         function connectDevice(obj)
@@ -127,6 +126,7 @@ classdef SWIPS_OK < hwDevice
 
         function disconnectDevice(obj)
             obj.stopTimer();
+            obj.cleanupAcqTimer();
             
             if libisloaded('okFrontPanel')
                 calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
@@ -135,10 +135,26 @@ classdef SWIPS_OK < hwDevice
             
             obj.Connected = false;
         end
+
+        function cleanupAcqTimer(obj)
+            % Safely stop and delete the acquisition dwell timer.
+            try
+                if ~isempty(obj.acq_timer) && isvalid(obj.acq_timer)
+                    if strcmp(obj.acq_timer.Running, 'on')
+                        stop(obj.acq_timer);
+                    end
+                    delete(obj.acq_timer);
+                end
+            catch
+            end
+            obj.acq_timer = [];
+        end
         
         function delete(obj)
             if obj.Connected
                 obj.disconnectDevice();
+            else
+                obj.cleanupAcqTimer();
             end
             delete@hwDevice(obj);
         end 
@@ -386,18 +402,26 @@ classdef SWIPS_OK < hwDevice
 
             % Clear Counters
             if obj.Connected
+                % Guard: skip if a previous acquisition is still running
+                if ~isempty(obj.acq_timer) && isvalid(obj.acq_timer) && strcmp(obj.acq_timer.Running, 'on')
+                    obj.dropCount = obj.dropCount + 1;
+                    warning('SWIPS_OK:AcqBusy', ...
+                        'Acquisition already in progress — skipping this cycle (drop #%d).', obj.dropCount);
+                    return;
+                end
+
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 2);  % Clear PPA Counters
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 3);  % Clear Upper Raw Counters
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
 
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
 
-                obj.acq_timer = timer('StartDelay', 10^obj.acq_time,...
+                obj.cleanupAcqTimer();
+                obj.acq_timer = timer('StartDelay', 10^obj.acq_time+.2,...
                                         'Name', 'swips_OK_dwell_Timer',...
                                         'ExecutionMode', 'singleShot',...
                                         'TimerFcn', @(~,~) obj.listenPPA_ok(),...
-                                        'BusyMode','queue',...
-                                        'StopFcn',@(~,~) delete(obj.acq_timer));
+                                        'BusyMode','queue');
                 start(obj.acq_timer);
             else
                 obj.read_nan();
@@ -405,12 +429,12 @@ classdef SWIPS_OK < hwDevice
         end
 
         function listenPPA_ok(obj)
-             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
-            
+             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room
             rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
             rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
-            ppaCnt = zeros(1,16);       % empty array for ppa count
-            calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);       % get the final wireout (count values)
+            ppaCnt = zeros(1,16);       % empty array for ppa count  
+            
+            obj.aliveCount = obj.checkAlivenessCounter(); % get the final wireout (count values) and increment aliveness
 
             for i = 0:15
                 ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
@@ -445,6 +469,11 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.rawLCnt = rawLCnt;
             obj.lastRead.rawUCnt = rawUCnt;
             obj.lastRead.PPACnt = ppaCnt;
+            
+
+            % Timer has now stopped (singleShot). Delete it so no stale
+            % timer objects accumulate between acquisition cycles.
+            obj.cleanupAcqTimer();
         end
 
         function readPPA_ok(obj,~,~)
@@ -533,6 +562,35 @@ classdef SWIPS_OK < hwDevice
                 warning('OpalKelly:ConnectionLost', '%s', ME.message);
                 obj.Connected = false;
                 connected = false;
+            end
+        end
+        
+        function count = checkAlivenessCounter(obj)
+            % checkAlivenessCounter - Read the aliveness counter from the FPGA
+            %   Returns the 32-bit aliveness counter value from WireOut address 0x21
+            %   Returns NaN if device is not connected
+            %
+            % The aliveness counter is a 32-bit counter that increments continuously
+            % to indicate the FPGA is alive and responding
+            
+            count = NaN;
+            
+            % Check if device is connected
+            if ~obj.Connected
+                warning('Device not connected. Cannot read aliveness counter.');
+                return;
+            end
+            
+            try
+                % Update WireOuts to get latest values from FPGA
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+                
+                % Read aliveness counter from address 0x21
+                count = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('21'));
+                
+            catch ME
+                warning('OpalKelly:ReadError', 'Error reading aliveness counter: %s', ME.message);
+                count = NaN;
             end
         end
     end
