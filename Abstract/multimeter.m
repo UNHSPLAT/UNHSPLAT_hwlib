@@ -1,4 +1,4 @@
-classdef multimeter < hwDevice
+classdef multimeter < hVisaHw
     %MULTIMETER Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -10,7 +10,7 @@ classdef multimeter < hwDevice
         function obj = multimeter(address,funcConfig)
             % Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address,funcConfig);
+            obj@hVisaHw(address,funcConfig);
         end
     end
 end

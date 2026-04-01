@@ -1,4 +1,4 @@
-classdef keithley6485 < hwDevice
+classdef keithley6485 < hVisaHw
 
     properties
         NPLC double
@@ -17,7 +17,7 @@ classdef keithley6485 < hwDevice
                 address string='';%
                 funcConfig = @(x) x;
             end
-            obj@hwDevice(address,funcConfig);
+            obj@hVisaHw(address,funcConfig);
             obj.lastRead = nan;
         end
 

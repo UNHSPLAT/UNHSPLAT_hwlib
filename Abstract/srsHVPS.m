@@ -6,6 +6,11 @@ classdef srsHVPS < powerSupply
         NumOutputs double = 1
     end
 
+    properties
+        Vmeas double = nan%
+        Imeas double = nan%
+    end
+
     methods
         function obj = srsHVPS(address,funcConfig)
             % Construct an instance of this class
@@ -31,43 +36,74 @@ classdef srsHVPS < powerSupply
 
         end
 
-        function volt = measV(obj)
+        function getVSet_async(obj)
+            function readVasync(~,~)
+                dataOut = fscanf(obj.hVisa);
+                obj.dataOut = dataOut;
+                display(dataOut);
+                obj.VSet = str2double(strtrim(dataOut));
+            end
+            obj.devRW_async('VSET?',@readVasync);
+        end
 
+        function volt = measV(obj)
             dataOut = obj.devRW('VOUT?');
             volt = str2double(strtrim(dataOut));
-            
+            obj.Vmeas = volt;
+        end
+
+        function measVasync(obj)
+            function readVasync(~,~)
+                dataOut = fscanf(obj.hVisa);
+                obj.dataOut = dataOut;
+                obj.lastRead = str2double(strtrim(dataOut));
+                obj.lastReadTime = datetime('now');
+
+                obj.hVisa.BytesAvailableFcn = @(~,~) nan;
+                if strcmp(obj.hVisa.Status,'open')
+                    flushoutput(obj.hVisa);
+                    flushinput(obj.hVisa);
+                    fclose(obj.hVisa);
+                end
+            end
+            obj.devRW_async('VOUT?',@readVasync);
         end
 
         function setISet(obj,curr)
-
             obj.devRW(['ILIM',num2str(curr)]);
             obj.ISet = curr;
-
         end
 
         function curr = getISet(obj)
-
             dataOut = obj.devRW('ILIM?');
             curr = str2double(strtrim(dataOut));
-
             obj.ISet = curr;
-
         end
 
         function curr = measI(obj)
-
             dataOut = obj.devRW('IOUT?');
             curr = str2double(strtrim(dataOut));
+        end
 
+        function measIasync(obj)
+            function readVasync(~,~)
+                dataOut = fscanf(obj.hVisa);
+                obj.dataOut = dataOut;
+                display(dataOut);
+                obj.Imeas = str2double(strtrim(dataOut));
+            end
+            obj.devRW_async('IOUT?',@readVasync);
+        end
+
+        function readAsync(obj)
+            obj.measVasync;
+            obj.measIasync;
         end
 
         function pow = measP(obj)
-
             volt = obj.measV;
             curr = obj.measI;
-
             pow = volt.*curr;
-        
         end
 
         function setOutputState(obj,state)

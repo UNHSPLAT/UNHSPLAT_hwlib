@@ -1,0 +1,382 @@
+classdef swips_ok_gui_menu < handle
+    %SWIPS_OK_GUI_MENU Helper class for SWIPS FPGA control GUI menu functionality
+    
+    properties (Access = private)
+        parentInst    % Handle to the parent GUI object
+        parentMenu    % Handle to the parent menu object
+    end
+    
+    methods
+        function obj = swips_ok_gui_menu(parentInst, parentMenu)
+            %SWIPS_OK_GUI_MENU Construct an instance of this class
+            obj.parentInst = parentInst;
+            obj.parentMenu = parentMenu;
+
+            obj.createMenu();
+        end
+        
+        function hMenu = createMenu(obj)
+            % Create SWIPS FPGA Control submenu
+            hMenu = uimenu(obj.parentMenu, 'Text', 'SWIPS FPGA Control');
+
+            % Add connection options
+            uimenu(hMenu, 'Text', 'Connect FPGA',...
+                'MenuSelectedFcn', @(~,~) obj.connectFPGACallback(),...
+                'Separator', 'on');
+            uimenu(hMenu, 'Text', 'Disconnect FPGA',...
+                'MenuSelectedFcn', @(~,~) obj.disconnectFPGACallback());
+                
+            % collect pulse height distribition
+            uimenu(hMenu, 'Text', 'Collect Pulse Height Distribution',...
+                'MenuSelectedFcn', @(~,~) obj.callPHD());
+            
+            % Add acquisition settings
+            uimenu(hMenu, 'Text', 'Set Acquisition Time',...
+                'MenuSelectedFcn', @(~,~) obj.setAcqTimeCallback(),...
+                'Separator', 'on');
+            uimenu(hMenu, 'Text', 'Set DAQ Thresholds',...
+                'MenuSelectedFcn', @(~,~) obj.setDaqThresholdsCallback());
+            
+            % Add pulser control
+            uimenu(hMenu, 'Text', 'Pulser Control',...
+                'MenuSelectedFcn', @(~,~) obj.pulserControlCallback(),...
+                'Separator', 'on');
+        end
+        
+        function connectFPGACallback(obj)
+            % Connect to SWIPS FPGA
+            try
+                obj.parentInst.connectDevice();
+                if obj.parentInst.Connected
+                    msgbox('Successfully connected to SWIPS FPGA', 'Success');
+                else
+                    errordlg('Failed to connect to SWIPS FPGA', 'Error');
+                end
+            catch ME
+                errordlg(['Error connecting to SWIPS FPGA: ' ME.message], 'Error');
+            end
+        end
+        
+        function disconnectFPGACallback(obj)
+            % Confirm disconnect
+            choice = questdlg('Are you sure you want to disconnect the SWIPS FPGA?', ...
+                'Disconnect FPGA', ...
+                'Yes', 'No', 'No');
+            
+            if strcmp(choice, 'Yes')
+                try
+                    obj.parentInst.close();
+                    msgbox('FPGA successfully disconnected', 'Success');
+                catch ME
+                    errordlg(['Error disconnecting FPGA: ' ME.message], 'Error');
+                end
+            end
+        end
+
+        function callPHD(obj)
+            % Create figure for pulse height distribution collection inputs
+            fig = figure('Name', 'Pulse Height Distribution', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 300 150], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none');
+            
+            % Create UI elements
+            uicontrol('Style', 'text', ...
+                'Position', [10 270 270 30], ...
+                'String', 'Collect a Pulse Height Distribution', ...
+                'FontSize', 12);
+            
+            % Create array to store edit boxes
+            edit_boxes = zeros(1, 2);
+            
+            % Create label
+            uicontrol('Style', 'text', ...
+                'Position', [40 100 100 40], ...
+                'String', 'Number of Samples',...
+                'FontSize', 11);
+            
+            % Create edit box
+            edit_boxes(1) = uicontrol('Style', 'edit', ...
+                'Position', [60 65 60 30], ...
+                'String', num2str(1000), ...
+                'FontSize', 10);
+
+            % Create label
+            uicontrol('Style', 'text', ...
+                'Position', [150 85 120 40], ...
+                'String', 'Dwell time (ms)',...
+                'FontSize', 11);
+            
+            % Create edit box
+            edit_boxes(2) = uicontrol('Style', 'edit', ...
+                'Position', [180 65 60 30], ...
+                'String', num2str(1), ...
+                'FontSize', 10);
+            
+            % Create buttons
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [55 15 70 35], ...
+                'String', 'Collect', ...
+                'Callback', @applyCallback);
+            
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [175 15 70 35], ...
+                'String', 'Cancel', ...
+                'Callback', @(~,~) delete(fig));
+            
+            function applyCallback(~, ~)
+                try
+                    % Get values from edit boxes
+                    valSample = str2double(get(edit_boxes(1), 'String'));
+                    
+                    % Validate input
+                    if isnan(valSample) || valSample < 0 || valSample > 10000001 || mod(valSample, 1) ~= 0
+                        errordlg('Invalid number of samples for pulse height distribution %d. Must be an integer between zero and ten million.', 'Error');
+                        return;
+                    end
+                    Nsamples = valSample;
+
+                    % Get values from edit boxes
+                    valDwell = str2double(get(edit_boxes(2), 'String'));
+                    
+                    % Validate input
+                    if isnan(valDwell) || valDwell < 0 || valDwell > 100 || mod(valDwell, 1) ~= 0
+                        errordlg('Invalid dwell time %d. Must be an integer between 0-100.', 'Error');
+                        return;
+                    end
+                    dwell = valDwell;
+                    
+                    % Collect a PHD with Nsamples
+                    obj.parentInst.getPHD(Nsamples,dwell);
+                    
+                    % Close dialog
+                    delete(fig);
+                    msgbox('Pulse height distribution collected successfully', 'Success');
+                catch ME
+                    errordlg(['Error collecting pulse height distribution: ' ME.message], 'Error');
+                end
+            end
+        end
+
+        function setAcqTimeCallback(obj)
+            % Create dialog for acquisition time selection
+            choice = questdlg('Select Acquisition Time:', ...
+                'Set Acquisition Time', ...
+                '1 second','10 seconds','1 second');
+            
+            % Handle response
+            if ~isempty(choice)
+                try
+                    if strcmp(choice, '1 second')
+                        obj.parentInst.acq_time = 0;
+                    else  % 10 seconds
+                        obj.parentInst.acq_time = 1;
+                    end
+                    obj.parentInst.configurePPA_ok(); % Apply the new setting
+                catch ME
+                    errordlg(['Error setting acquisition time: ' ME.message], 'Error');
+                end
+            end
+        end
+        
+        function setDaqThresholdsCallback(obj)
+            % Create figure for threshold inputs
+            fig = figure('Name', 'Set DAQ Thresholds', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 400 500], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none');
+            
+            % Get current thresholds or use defaults
+            if ~isempty(obj.parentInst.dac_table)
+                current_thresholds = obj.parentInst.dac_table;
+            else
+                current_thresholds = zeros(1, 16);
+            end
+            
+            % Create UI elements
+            uicontrol('Style', 'text', ...
+                'Position', [10 460 380 30], ...
+                'String', 'Enter DAQ Thresholds (0-255):', ...
+                'FontSize', 12);
+            
+            % Create array to store edit boxes
+            edit_boxes = zeros(1, 16);
+            
+            % Create edit boxes in a 4x4 grid
+            for i = 1:16
+                row = floor((i-1)/4);
+                col = mod(i-1, 4);
+                
+                % Create label
+                uicontrol('Style', 'text', ...
+                    'Position', [20+col*95 400-row*80 80 20], ...
+                    'String', sprintf('DAQ %d:', i));
+                
+                % Create edit box
+                edit_boxes(i) = uicontrol('Style', 'edit', ...
+                    'Position', [20+col*95 370-row*80 80 30], ...
+                    'String', num2str(current_thresholds(i)), ...
+                    'FontSize', 10);
+            end
+            
+            % Create buttons
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [80 50 100 40], ...
+                'String', 'Apply', ...
+                'Callback', @applyCallback);
+            
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [220 50 100 40], ...
+                'String', 'Cancel', ...
+                'Callback', @(~,~) delete(fig));
+            
+            function applyCallback(~, ~)
+                try
+                    % Get values from edit boxes
+                    new_thresholds = zeros(1, 16);
+                    for j = 1:16
+                        val = str2double(get(edit_boxes(j), 'String'));
+                        
+                        % Validate input
+                        if isnan(val) || val < 0 || val > 255 || mod(val, 1) ~= 0
+                            errordlg(sprintf('Invalid value for DAQ %d. Must be integer between 0-255.', j), 'Error');
+                            return;
+                        end
+                        new_thresholds(j) = val;
+                    end
+                    
+                    % Update DAQ table and configure
+                    obj.parentInst.dac_table = new_thresholds;
+                    obj.parentInst.configurePPA_ok();
+                    
+                    % Close dialog
+                    delete(fig);
+                    msgbox('DAQ thresholds updated successfully', 'Success');
+                catch ME
+                    errordlg(['Error setting DAQ thresholds: ' ME.message], 'Error');
+                end
+            end
+        end
+        
+        function pulserControlCallback(obj)
+            % Create figure for pulser control
+            fig = figure('Name', 'Pulser Control', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 400 400], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none', ...
+                'Resize', 'off');
+            
+            % Title
+            uicontrol('Style', 'text', ...
+                'Position', [10 360 380 30], ...
+                'String', 'SWIPS Pulser Control', ...
+                'FontSize', 14, ...
+                'FontWeight', 'bold');
+            
+            % Even Pulser Enable
+            uicontrol('Style', 'text', ...
+                'Position', [30 310 150 25], ...
+                'String', 'Even Pulser Enable:', ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10);
+            evenPulserRadio = uicontrol('Style', 'radiobutton', ...
+                'Position', [200 310 150 25], ...
+                'String', 'Enable', ...
+                'Value', 0);
+            
+            % Odd Pulser Enable
+            uicontrol('Style', 'text', ...
+                'Position', [30 270 150 25], ...
+                'String', 'Odd Pulser Enable:', ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10);
+            oddPulserRadio = uicontrol('Style', 'radiobutton', ...
+                'Position', [200 270 150 25], ...
+                'String', 'Enable', ...
+                'Value', 0);
+            
+            % External Pulser Enable
+            uicontrol('Style', 'text', ...
+                'Position', [30 230 150 25], ...
+                'String', 'External Pulser Enable:', ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10);
+            extPulserPopup = uicontrol('Style', 'popupmenu', ...
+                'Position', [200 230 150 25], ...
+                'String', {'Disabled (0)', 'Enabled (1)'}, ...
+                'Value', 1);
+            
+            % Pulser Output Selection
+            uicontrol('Style', 'text', ...
+                'Position', [30 190 150 25], ...
+                'String', 'Output Selection:', ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10);
+            outputPopup = uicontrol('Style', 'popupmenu', ...
+                'Position', [200 190 150 25], ...
+                'String', {'0: SSD 0/1', '1: SSD 2/3', '2: SSD 4/5', '3: SSD 6/7', ...
+                           '4: SSD 8/9', '5: SSD 10/11', '6: SSD 12/13', '7: SSD 14/15'}, ...
+                'Value', 1);
+            
+            % Pulser Frequency
+            uicontrol('Style', 'text', ...
+                'Position', [30 150 150 25], ...
+                'String', 'Frequency:', ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10);
+            freqPopup = uicontrol('Style', 'popupmenu', ...
+                'Position', [200 150 150 25], ...
+                'String', {'0: 10 Hz', '1: 100 Hz', '2: 1 kHz', '3: 10 kHz', '4: 100 kHz'}, ...
+                'Value', 1);
+            
+            % Separator line
+            uicontrol('Style', 'text', ...
+                'Position', [10 110 380 2], ...
+                'BackgroundColor', [0.5 0.5 0.5]);
+            
+            % Apply All button
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [50 50 120 40], ...
+                'String', 'Apply All', ...
+                'FontSize', 11, ...
+                'Callback', @applyAllCallback);
+            
+            % Close button
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [230 50 120 40], ...
+                'String', 'Close', ...
+                'FontSize', 11, ...
+                'Callback', @(~,~) delete(fig));
+            
+            function applyAllCallback(~, ~)
+                try
+                    if ~obj.parentInst.Connected
+                        errordlg('FPGA not connected. Please connect before configuring pulser.', 'Error');
+                        return;
+                    end
+                    
+                    % Get values (radio buttons are 0 or 1, popup value - 1 gives 0 or 1)
+                    evenEnable = get(evenPulserRadio, 'Value');
+                    oddEnable = get(oddPulserRadio, 'Value');
+                    extEnable = get(extPulserPopup, 'Value') - 1;
+                    outputSel = get(outputPopup, 'Value') - 1;
+                    freqSel = get(freqPopup, 'Value') - 1;
+                    
+                    % Apply settings
+                    obj.parentInst.evenPulserEnable(evenEnable);
+                    obj.parentInst.oddPulserEnable(oddEnable);
+                    obj.parentInst.externalPulserEnable(extEnable);
+                    obj.parentInst.pulserOutputSelection(outputSel);
+                    obj.parentInst.pulserFrequency(freqSel);
+                    
+                    msgbox('Pulser settings applied successfully', 'Success');
+                catch ME
+                    errordlg(['Error applying pulser settings: ' ME.message], 'Error');
+                end
+            end
+        end
+    end
+end

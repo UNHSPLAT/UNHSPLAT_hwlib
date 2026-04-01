@@ -1,4 +1,4 @@
-classdef frequencyCounter < hwDevice
+classdef frequencyCounter < hVisaHw
     %FREQUENCYCOUNTER Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -10,7 +10,7 @@ classdef frequencyCounter < hwDevice
         function obj = frequencyCounter(address)
             %FREQUENCYCOUNTER Construct an instance of this class
             %   Detailed explanation goes here
-            obj@hwDevice(address);
+            obj@hVisaHw(address);
         end
     end
 end

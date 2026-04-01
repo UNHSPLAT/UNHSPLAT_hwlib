@@ -1,11 +1,11 @@
-classdef SWIPS_OK < handle
+classdef SWIPS_OK < hwDevice
 
     properties
-%         Tag string =""%
         textLabel string = ""% 
         unit string = ""%
-        address string = ""%
+        Address string = ""%
         asmInfo %
+        App %reference to labGUI
     end
 
     properties (Constant)
@@ -14,32 +14,39 @@ classdef SWIPS_OK < handle
     end
 
     properties (SetObservable) 
-        Timer=timer%
-        Connected = false%
-        lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16))
-        funcConfig
-
+       
         bitfile string   % fpga bit file
-        dac_table = ones(1,16); % default DAC table
+        dac_table = ones(1,16)*60; % default DAC table
+                                   % default DAC table @2000 V [68,60,60,60, 60,60,60,60, 60,60,60,61, 60,60,60,76]
+                                   % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
-        Tag
+        acq_timer = timer;
+
+        dropCount = 0;
     end
 
     methods
-        function obj = SWIPS_OK(bitfile,funcConfig)
+        function obj = SWIPS_OK(app, bitfile, funcConfig)
             arguments
-                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x0f27429b_swips.bit')) ;%
+                app;
+                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
                 funcConfig = @(x) x;
             end
+            
+            % Call parent constructor
+            obj@hwDevice(funcConfig);
+
+            obj.App = app; %store GUI reference
+
             obj.bitfile = bitfile;
-            obj.funcConfig = funcConfig;
-            obj.Timer =  timer('Period',10,... %period
-                      'ExecutionMode','fixedSpacing',... %{singleShot,fixedRate,fixedSpacing,fixedDelay}
-                      'BusyMode','drop',... %{drop, error, queue}
-                      'StartDelay',0,...
-                      'TimerFcn',@obj.read ...
-                      );
+            obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
+            
+            % Override timer settings for SWIPS_OK
+            obj.refreshRate = 10;
+            obj.readFunc = @(x) obj.askPPA_ok();
+            
+            obj.connectDevice();
         end
 
         function connectDevice(obj)
@@ -100,8 +107,10 @@ classdef SWIPS_OK < handle
                     obj.Connected = true;
 
                     obj.funcConfig(obj);
-                catch
+                catch ME
                     disp('Error Connecting to Opal Kelly Device')
+                    disp(['Error: ' ME.message])
+                    disp(['In: ' ME.identifier])
                     obj.Connected = false;
                     return
                 end
@@ -116,21 +125,22 @@ classdef SWIPS_OK < handle
             % start(obj.Timer);
         end
 
-        function delete(obj)
-            if obj.Connected
-                obj.close
-            end
-            delete(obj.Timer);
-        end
-
-        function close(obj)
+        function disconnectDevice(obj)
+            obj.stopTimer();
             
             if libisloaded('okFrontPanel')
-                    calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
-                    calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
+                calllib('okFrontPanel', 'okFrontPanel_Close',obj.okfp);
+                calllib('okFrontPanel','okFrontPanel_Destruct',obj.okfp);
             end
             
             obj.Connected = false;
+        end
+        
+        function delete(obj)
+            if obj.Connected
+                obj.disconnectDevice();
+            end
+            delete@hwDevice(obj);
         end 
 
         function configurePPA_ok(obj, dac_table)
@@ -144,10 +154,316 @@ classdef SWIPS_OK < handle
             end
         end
 
-        function read(obj,~,~)
+        function evenPulserEnable(obj, enable)
+            % evenPulserEnable - Enable/disable the even pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 0 of WireIn address 0x06 (PULSER_CONFIG)
+            % Based on Pulser Config table
+            
             if obj.Connected
+                if enable
+                    % Enable even pulser (set bit 0 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(1), hex2dec('01'));
+                    disp('Even Pulser Enabled');
+                else
+                    % Disable even pulser (set bit 0 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('01'));
+                    disp('Even Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure even pulser.');
+            end
+        end
+
+        function oddPulserEnable(obj, enable)
+            % oddPulserEnable - Enable/disable the odd pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 1 of WireIn address 0x06 (PULSER_CONFIG)
+            % Based on Pulser Config table
+            
+            if obj.Connected
+                if enable
+                    % Enable odd pulser (set bit 1 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(2), hex2dec('02'));
+                    disp('Odd Pulser Enabled');
+                else
+                    % Disable odd pulser (set bit 1 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('02'));
+                    disp('Odd Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure odd pulser.');
+            end
+        end
+        
+        function externalPulserEnable(obj, enable)
+            % externalPulserEnable - Enable/disable the external pulser
+            %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
+            %
+            % Sets bit 2 of WireIn address 0x06 (PULSER_CONFIG)
+            % When enabled, overrides internal rate selection
+            % Based on Pulser Config table
+            
+            if obj.Connected
+                if enable
+                    % Enable external pulser (set bit 2 to 1)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(4), hex2dec('04'));
+                    disp('External Pulser Enabled (overrides rate selection)');
+                else
+                    % Disable external pulser (set bit 2 to 0)
+                    calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), uint32(0), hex2dec('04'));
+                    disp('External Pulser Disabled');
+                end
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+            else
+                warning('Device not connected. Cannot configure external pulser.');
+            end
+        end
+        
+        function pulserOutputSelection(obj, selection)
+            % pulserOutputSelection - Select which SSD pair receives pulser output
+            % selection: 0-7 corresponding to SSD pairs 0/1, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13, 14/15
+            % Sets bits 6:4 of WireIn 0x06
+            if obj.Connected
+                % Validate input
+                if selection < 0 || selection > 7
+                    error('Selection must be 0-7 (0=SSD 0/1, 1=SSD 2/3, ..., 7=SSD 14/15)');
+                end
+                
+                % Shift selection to bits 6:4 and set with mask 0x70
+                value = bitshift(uint32(selection), 4);
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('06'), value, hex2dec('70'));
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+                disp(['Pulser Output set to SSD ', num2str(selection*2), '/', num2str(selection*2+1)]);
+            else
+                warning('Device not connected. Cannot configure pulser output selection.');
+            end
+        end
+        
+        function pulserFrequency(obj, frequency)
+            % pulserFrequency - Set pulser frequency
+            % frequency: 0=10Hz, 1=100Hz, 2=1kHz, 3=10kHz, 4=100kHz
+            % Sets bits 2:0 of WireIn 0x07
+            if obj.Connected
+                % Validate input
+                if frequency < 0 || frequency > 4
+                    error('Frequency must be 0-4 (0=10Hz, 1=100Hz, 2=1kHz, 3=10kHz, 4=100kHz)');
+                end
+                
+                % Frequency labels for display
+                freqDisplay = {'10 Hz', '100 Hz', '1 kHz', '10 kHz', '100 kHz'};
+                
+                % Set bits 2:0 with mask 0x07
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('07'), uint32(frequency), hex2dec('07'));
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+                disp(['Pulser Frequency set to ', freqDisplay{frequency+1}]);
+            else
+                warning('Device not connected. Cannot configure pulser frequency.');
+            end
+        end
+
+        function getPHD(obj,Nsamples,dwellTime)
+
+            obj.App.genTestSequence(); 
+
+            persistent buf pv;
+            
+            % Allocate a buffer
+            bytes = 4*1024;     % 1024 32-bit samples
+            buf(bytes,1) = uint8(0);
+            pv = libpointer('uint8Ptr',buf); 
+
+            %histogram settings
+            min = 200;
+            max = 15000;
+            stepSize = 20;
+            edges = min:stepSize:max;
+            numBins = (max-min)/stepSize;
+            
+            %outputfile settings
+            histData4file = zeros(numBins,17);
+            histData4file(:,1) = edges(1:numBins)+stepSize/2;
+            header = {'Bin Center','Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'};
+                  
+            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
+            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+
+            ind = 1;
+            while ind <= Nsamples
+                if mod(ind,1024) == 0 || ind == Nsamples
+                       
+                    calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
+                    data = get(pv,'value');
+                    
+                    % Fix Endian
+                    data = reshape(data,4,length(data)/4);
+                    data32 = uint32(zeros(1,bytes/4));
+                    for ii=1:length(data)
+                        data32(ii) = typecast(data(:,ii),'uint32');
+                    end
+        
+                    % the format of the PH word is as follows:
+                    %   Bit       31: data valid
+                    %   Bits 30 - 25: unused (0)
+                    %   Bit       24: anode_active
+                    %   Bits 23 - 20: unused (0)
+                    %   Bits 19 - 16: anode position (number)
+                    %   Bits 15 - 14: unused (0)
+                    %   Bits 13 -  0: pulseheight
+                    
+                    % we only want to report out the valid data. drop all the rest
+                    idx = bitand(data32, 2^31) ~= 0;
+                    pulseheight = bitand(data32(idx), 2^14-1);
+                    anode_pos = bitshift(bitand(data32(idx),2^20-1), -16);
+                    anode_active = bitshift(bitand(data32(idx),2^24), -24);
+        
+                    % Plot
+                    histArray = zeros(numBins,16);
+                    
+                    histVal = zeros(length(find(anode_pos == mode(anode_pos))),16);
+                    
+                    for i=1:16
+                        indices = find(anode_pos == i-1);
+                        if(~isempty(indices))
+                            histVal(1:length(pulseheight(indices)),i) = pulseheight(indices);
+                            % histogram(selectedValues, numBins); hold on
+                        end
+                    end
+                    
+                    for i=1:16
+                       data = histVal(:,i);
+                       counts = histcounts(data(data~=0),edges); 
+                       histArray(:,i) = counts;
+                    end
+
+                    %accumulate counts in the histogram array for the output file
+                    histData4file(:,2:17) = histData4file(:,2:17) + histArray;
+
+                    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+                end
+                
+                %collect signle pulse height
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
+                pause(dwellTime*1E-3)
+               
+                ind = ind + 1;
+            end     
+            
+            %Write to file
+            t = array2table(histData4file,'VariableNames',header);
+            writetable(t,obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv','WriteMode','overwrite');
+            %Plot Pulse Height Distribution in a new window
+            f = figure('Name','Pulse Height Distribution',...
+                       'NumberTitle','off',...
+                       'Color','w');
+
+            ax = axes('Parent',f);
+            for i=1:16
+                histogram('BinEdges',edges,'BinCounts',histData4file(:,i+1)); hold on;
+            end
+            legend({'Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'}); 
+            xlabel(ax, "Pulse Amplitude [arb.]");
+            ylabel(ax,'Counts');
+             
+        end
+
+        function askPPA_ok(obj)
+            % acquirePPA_ok - Rev 0, SXL, 8/13/2025
+            %  "okfp": opal kelly object
+            %  "acq_time": int where '0' correspond to 1 sec acquisition time and '1' to
+            %  10 sec
+            %  "rawLCnt": 16x1 double holding the values of the raw count; note that
+            %  Anode 0,7,8,15 are 32 bit while the others are 16 bit
+            %  "rawUCnt": 4x1 double holding the values of the raw count; they
+            %  correspond to Anode 0,7,8,15; all values are 32 bit
+            %  "ppACnt": 16x1 double holding the values of the ppa count (divided by 2); 
+            %  all values are 32 bit
+            
+
+            % Clear Counters
+            if obj.Connected
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 2);  % Clear PPA Counters
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 3);  % Clear Upper Raw Counters
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 4);  % Clear Lower Raw Counters
+
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('41'), 0);  % Start Acquisition
+
+                obj.acq_timer = timer('StartDelay', 10^obj.acq_time,...
+                                        'Name', 'swips_OK_dwell_Timer',...
+                                        'ExecutionMode', 'singleShot',...
+                                        'TimerFcn', @(~,~) obj.listenPPA_ok(),...
+                                        'BusyMode','queue',...
+                                        'StopFcn',@(~,~) delete(obj.acq_timer));
+                start(obj.acq_timer);
+            else
+                obj.read_nan();
+            end
+        end
+
+        function listenPPA_ok(obj)
+             % '0' is 1 sec acquisition time; '1' is 10 sec (with an extra 1 sec for a little wiggle room)
+            
+            rawLCnt = zeros(1,16);      % empty array for raw count (for low threshold)
+            rawUCnt = zeros(1,4);       % empty array for raw count (for high threshold)
+            ppaCnt = zeros(1,16);       % empty array for ppa count
+            calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);       % get the final wireout (count values)
+
+            for i = 0:15
+                ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
+
+                if(i==0) % Anode 0 - raws
+                    rawLCnt(0+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('39'));
+                    rawUCnt(1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('35'));
+                elseif(i==7)  % Anode 7 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('38'));
+                    rawUCnt(2) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('34'));
+                elseif(i==8)  % Anode 8 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('37'));
+                    rawUCnt(3) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('33'));
+                elseif(i==15)  % Anode 15 - raws
+                    rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('36'));
+                    rawUCnt(4) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('32'));
+                else % All other Anodes - raws
+                    if(i<8) % mapping to the correct Address
+                        raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('3F')-floor((i-1)/2));
+                    else
+                        raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', obj.okfp, hex2dec('3F')-floor((i-3)/2));
+                    end
+
+                    if(mod(i,2)) % odd # anode (apply mask)
+                        rawLCnt(i+1) = bitand(raw, hex2dec('ffff'));
+                    else % even # anode (apply mask)
+                        rawLCnt(i+1) = bitand(raw, hex2dec('ffff0000')) / 2^16;
+                    end
+                end
+%                 disp(['Anode ' num2str(i) ': ' num2str(rawLCnt(i+1)) ' | ' num2str(ppaCnt(i+1)/2)]);
+            end
+            obj.lastRead.rawLCnt = rawLCnt;
+            obj.lastRead.rawUCnt = rawUCnt;
+            obj.lastRead.PPACnt = ppaCnt;
+        end
+
+        function readPPA_ok(obj,~,~)
+            if obj.Connected
+                tic;
+                if ~obj.isDeviceConnected()
+                    obj.read_nan();
+                    obj.read_delay = toc;
+                    obj.dropCount = obj.dropCount + 1;
+                    warning('OpalKelly:ConnectionLost', 'Lost connection to Opal Kelly Device during read.');
+                    if obj.dropCount >3
+                        obj.Connected = false;
+                    end
+                    return;
+                end
                 [obj.lastRead.rawLCnt,obj.lastRead.rawUCnt,obj.lastRead.PPACnt] = acquirePPA_ok(obj.okfp,obj.acq_time);
+                obj.dropCount = 0;
                 display(obj.lastRead);
+                obj.read_delay = toc;
             else
                 obj.read_nan();
             end
@@ -177,6 +493,46 @@ classdef SWIPS_OK < handle
             % Stop timer if still running
             if strcmp(obj.Timer.Running,'on')
                 stop(obj.Timer);
+            end
+        end
+
+        function connected = isDeviceConnected(obj)
+            % isDeviceConnected - Check if the OpalKelly device is still connected
+            %   Returns true if the device is connected and responding, false otherwise
+            %   This method attempts to communicate with the device to verify the connection
+            
+            connected = false;
+            
+            % First check if we think we're connected
+            if ~obj.Connected
+                return;
+            end
+            
+            % Check if library is loaded
+            if ~libisloaded('okFrontPanel')
+                obj.Connected = false;
+                return;
+            end
+            
+            try
+                % Try to check if FrontPanel is enabled
+                isEnabled = calllib('okFrontPanel', 'okFrontPanel_IsFrontPanelEnabled', obj.okfp);
+                
+                if ~isEnabled
+                    return;
+                end
+                
+                % Try a simple read operation to verify communication
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireOuts', obj.okfp);
+                
+                % If we got here without error, device is connected
+                connected = true;
+                
+            catch ME
+                % Any error means we lost connection
+                warning('OpalKelly:ConnectionLost', '%s', ME.message);
+                obj.Connected = false;
+                connected = false;
             end
         end
     end
@@ -261,7 +617,7 @@ function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
     
     for i = 0:15
 
-        ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('22')+i);       % PPA map to address x"22" - x"31"
+        ppaCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('22')+i);       % PPA map to Address x"22" - x"31"
         
         if(i==0) % Anode 0 - raws
             rawLCnt(0+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('39'));
@@ -276,7 +632,7 @@ function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
             rawLCnt(i+1) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('36'));
             rawUCnt(4) = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('32'));
         else % All other Anodes - raws
-            if(i<8) % mapping to the correct address
+            if(i<8) % mapping to the correct Address
                 raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-1)/2));
             else
                 raw = calllib('okFrontPanel', 'okFrontPanel_GetWireOutValue', okfp, hex2dec('3F')-floor((i-3)/2));
