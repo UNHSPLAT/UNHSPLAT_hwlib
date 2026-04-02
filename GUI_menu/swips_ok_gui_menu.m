@@ -196,13 +196,16 @@ classdef swips_ok_gui_menu < handle
                             'NumberTitle','off',...
                             'Color','w');
 
-                    ax = axes('Parent', f);
-                    for i=1:16
-                        histogram('BinEdges',obj.parentInst.pulseHeightEdges,'BinCounts',obj.parentInst.pulseHeightData(:,i+1)); hold on;
+                    tg = uitabgroup('Parent', f);
+                    for i = 1:16
+                        tab = uitab('Parent', tg, 'Title', sprintf('Anode %d', i-1));
+                        ax = axes('Parent', tab);
+                        histogram(ax, 'BinEdges', obj.parentInst.pulseHeightEdges, ...
+                            'BinCounts', obj.parentInst.pulseHeightData(:, i+1));
+                        xlabel(ax, 'Pulse Amplitude [arb.]');
+                        ylabel(ax, 'Counts');
+                        title(ax, sprintf('Anode %d', i-1));
                     end
-                    legend({'Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'}); 
-                    xlabel(ax, "Pulse Amplitude [arb.]");
-                    ylabel(ax, 'Counts');
 
 
 
