@@ -127,8 +127,7 @@ classdef swips_ok_gui_menu < handle
             
             function applyCallback(~, ~)
                 try
-                    % Close dialog
-                    delete(fig);
+                    
 
                     % Get values from edit boxes
                     valSample = str2double(get(edit_boxes(1), 'String'));
@@ -150,6 +149,8 @@ classdef swips_ok_gui_menu < handle
                     end
                     dwell = valDwell;
                     
+                    % Close dialog
+                    delete(fig);
                     % Show status while collecting
                     statusFig = figure('Name', 'Please Wait', ...
                         'NumberTitle', 'off', ...
@@ -166,7 +167,7 @@ classdef swips_ok_gui_menu < handle
 
                     % Collect a PHD with Nsamples
                     obj.parentInst.getPHD(Nsamples, dwell);
-
+                    
                     % Clear status and show success dialog with save option
                     delete(statusFig);
                     successFig = figure('Name', 'Success', ...
