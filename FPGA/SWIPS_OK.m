@@ -25,6 +25,7 @@ classdef SWIPS_OK < hwDevice
         dropCount = 0;
         pulseHeightData = [];
         pulseHeightEdges = [];
+        PHInd = 0;
     end
 
     methods
@@ -280,7 +281,7 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples,dwellTime,data_file)
+        function getPHD(obj,Nsamples,dwellTime)
 
 
             persistent buf pv;
@@ -306,12 +307,11 @@ classdef SWIPS_OK < hwDevice
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
 
             ind = 1;
+            tic;
             while ind <= Nsamples
                 if mod(ind,1024) == 0 || ind == Nsamples
-                       
                     calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
                     data = get(pv,'value');
-                    
                     % Fix Endian
                     data = reshape(data,4,length(data)/4);
                     data32 = uint32(zeros(1,bytes/4));
@@ -361,15 +361,12 @@ classdef SWIPS_OK < hwDevice
                 
                 %collect signle pulse height
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
-                pause(dwellTime*1E-3)
-               
+                pause(dwellTime*1E-3);
+                drawnow();
                 ind = ind + 1;
             end     
-            
-            %Write to file
-            % t = array2table(histData4file,'VariableNames',header);
-            % obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv',
-            % writetable(t,data_file,'WriteMode','overwrite');
+            display(toc);
+
             obj.pulseHeightData = histData4file;
             obj.pulseHeightEdges = edges;
              
