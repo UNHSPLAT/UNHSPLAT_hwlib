@@ -124,7 +124,9 @@ classdef swips_ok_gui_menu < handle
                 'Position', [175 15 70 35], ...
                 'String', 'Cancel', ...
                 'Callback', @(~,~) delete(fig));
-            
+            function setfield_abort(Nsamples)
+                obj.parentInst.PHInd = Nsamples;
+            end
             function applyCallback(~, ~)
                 try
                     
@@ -180,12 +182,10 @@ classdef swips_ok_gui_menu < handle
                         'String', 'Abort Collection', ...
                         'ForegroundColor', [0.8 0 0], ...
                         'FontSize', 10, ...
-                        'Callback', @(~,~) setfield_abort());
+                        'Callback', @(~,~) setfield_abort(Nsamples));
                     drawnow;
 
-                    function setfield_abort()
-                        obj.parentInst.PHInd = Nsamples;
-                    end
+                    
 
                     % Timer to poll PHInd and update progress bar
                     progTimer = timer('Period', 0.2, 'ExecutionMode', 'fixedRate', ...
@@ -237,7 +237,7 @@ classdef swips_ok_gui_menu < handle
                         title(ax, sprintf('Anode %d', i-1));
                     end
 
-
+                    obj.parentInst.PHInd = 0;
 
                 catch ME
                     errordlg(['Error collecting pulse height distribution: ' ME.message], 'Error');
