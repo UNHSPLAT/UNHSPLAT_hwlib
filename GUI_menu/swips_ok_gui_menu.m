@@ -185,19 +185,15 @@ classdef swips_ok_gui_menu < handle
                         'Callback', @(~,~) setfield_abort(Nsamples));
                     drawnow;
 
-                    
-
-                    % Timer to poll PHInd and update progress bar
-                    progTimer = timer('Period', 0.2, 'ExecutionMode', 'fixedRate', ...
-                        'TimerFcn', @(~,~) obj.updatePHDProgress(progPatch, countText, Nsamples));
-                    start(progTimer);
+                    % Listener on PHInd to update progress bar on every set
+                    progListener = addlistener(obj.parentInst, 'PHInd', 'PostSet', ...
+                        @(~,~) obj.updatePHDProgress(progPatch, countText, Nsamples));
 
                     % Collect a PHD with Nsamples
                     obj.parentInst.getPHD(Nsamples, dwell);
 
-                    % Stop timer and clear status
-                    stop(progTimer);
-                    delete(progTimer);
+                    % Remove listener and clear status
+                    delete(progListener);
                     delete(statusFig);
                     successFig = figure('Name', 'Success', ...
                         'NumberTitle', 'off', ...
