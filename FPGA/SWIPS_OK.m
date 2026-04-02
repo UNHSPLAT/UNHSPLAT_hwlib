@@ -306,10 +306,9 @@ classdef SWIPS_OK < hwDevice
             calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
 
-            ind = 1;
-            tic;
-            while ind <= Nsamples
-                if mod(ind,1024) == 0 || ind == Nsamples
+            obj.PHInd = 1;
+            while obj.PHInd <= Nsamples
+                if mod(obj.PHInd,1024) == 0 || obj.PHInd == Nsamples
                     calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
                     data = get(pv,'value');
                     % Fix Endian
@@ -363,9 +362,8 @@ classdef SWIPS_OK < hwDevice
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
                 pause(dwellTime*1E-3);
                 drawnow();
-                ind = ind + 1;
+                obj.PHInd = obj.PHInd + 1;
             end     
-            display(toc);
 
             obj.pulseHeightData = histData4file;
             obj.pulseHeightEdges = edges;
