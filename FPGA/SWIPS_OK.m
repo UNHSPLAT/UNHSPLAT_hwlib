@@ -282,29 +282,39 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj, Nsamples, dwellTime, PHThreshold)
+        function getPHD(obj, Nsamples, dwellTime, PHThreshold, minVal, maxVal, stepSize)
             % getPHD - Collect a pulse height distribution from the SWIPS FPGA
             %
             %   obj.getPHD(Nsamples, dwellTime, PHThreshold)
+            %   obj.getPHD(Nsamples, dwellTime, PHThreshold, minVal, maxVal, stepSize)
             %
             %   Inputs:
             %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
             %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
             %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
+            %     minVal       - Histogram lower edge (default: 200)
+            %     maxVal       - Histogram upper edge (default: 15000)
+            %     stepSize     - Histogram bin width (default: 20)
             %
             %   Delegates acquisition to getPH, then bins the resulting obj.PH data into a
-            %   histogram with bin edges [200:20:15000].
+            %   histogram with bin edges [minVal:stepSize:maxVal].
             %   Results are stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
             %   bin centres and columns 2-17 correspond to Anodes 0-15.
             %   obj.pulseHeightEdges holds the bin edges used.
+            arguments
+                obj
+                Nsamples
+                dwellTime
+                PHThreshold
+                minVal   = 200
+                maxVal   = 15000
+                stepSize = 20
+            end
 
             % Collect raw samples into obj.PH
             obj.getPH(Nsamples, dwellTime, PHThreshold);
 
             % Histogram settings
-            minVal   = 200;
-            maxVal   = 15000;
-            stepSize = 20;
             edges    = minVal:stepSize:maxVal;
             numBins  = (maxVal - minVal) / stepSize;
 
