@@ -23,10 +23,15 @@ classdef SWIPS_OK < hwDevice
         acq_timer = [];
         aliveCount = 0;
         dropCount = 0;
+
         pulseHeightData = [];
         pulseHeightEdges = [];
         PHInd = 0;
         PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
+        PH_connected = false;
+        PH_Nsamples  = 1000;   % default number of pulse height samples
+        PH_dwellTime = 1;     % default dwell time between triggers (ms)
+        PH_threshold = 100;    % default lower pulse height threshold (0-65535)
     end
 
     methods
@@ -44,7 +49,14 @@ classdef SWIPS_OK < hwDevice
             
             % Override timer settings for SWIPS_OK
             obj.refreshRate = 10;
-            obj.readFunc = @(x) obj.askPPA_ok();
+
+            function readFuncWrapper(~,~)
+                obj.readPPA_ok();
+                if obj.PH_connected
+                    obj.getPH();
+                end
+            end
+            obj.readFunc = @readFuncWrapper;
             
         end
 
@@ -339,9 +351,10 @@ classdef SWIPS_OK < hwDevice
         function getPH(obj, Nsamples, dwellTime, PHThreshold)
             % getPH - Collect raw pulse height samples from the SWIPS FPGA
             %
+            %   obj.getPH()                              % uses obj.PH_Nsamples, obj.PH_dwellTime, obj.PH_threshold
             %   obj.getPH(Nsamples, dwellTime, PHThreshold)
             %
-            %   Inputs:
+            %   Inputs (all optional, fall back to corresponding properties):
             %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
             %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
             %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
@@ -352,6 +365,13 @@ classdef SWIPS_OK < hwDevice
             %     anode_pos    - [1 x N uint32] anode position (0-15, bits 19:16)
             %     anode_active - [1 x N uint32] anode active flag (bit 24)
             %     timestamp    - [1 x N datetime] read timestamp, one entry per valid sample
+            %     aliveCount   - [1 x N uint32] FPGA aliveness counter value at each batch read
+            arguments
+                obj
+                Nsamples    = obj.PH_Nsamples
+                dwellTime   = obj.PH_dwellTime
+                PHThreshold = obj.PH_threshold
+            end
 
             persistent buf pv;
 
