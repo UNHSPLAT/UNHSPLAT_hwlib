@@ -29,6 +29,7 @@ classdef SWIPS_OK < hwDevice
         PHInd = 0;
         PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
         PH_connected = false;
+        PH_reading = false;
         PH_Nsamples  = 1000;   % default number of pulse height samples
         PH_dwellTime = 1;     % default dwell time between triggers (ms)
         PH_threshold = 100;    % default lower pulse height threshold (0-65535)
@@ -53,7 +54,10 @@ classdef SWIPS_OK < hwDevice
             function readFuncWrapper(~,~)
                 obj.readPPA_ok();
                 if obj.PH_connected
-                    obj.getPH();
+                    if ~obj.PH_reading
+                        % If we're currently reading PH data, skip the PPA read and just update PH
+                        obj.getPH();
+                    end
                 end
             end
             obj.readFunc = @readFuncWrapper;
@@ -373,6 +377,7 @@ classdef SWIPS_OK < hwDevice
                 PHThreshold = obj.PH_threshold
             end
 
+            obj.PH_reading = true; % Set flag to indicate we're reading PH data
             persistent buf pv;
 
             % Allocate a buffer
@@ -418,12 +423,14 @@ classdef SWIPS_OK < hwDevice
                         obj.PH.aliveCount   = [obj.PH.aliveCount,   batchAlive];
                     catch ME
                         warning(ME.identifier, 'Error reading pulse height data: %s', ME.message);
+                        obj.PH_reading = false;
                     end
                     calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
                 end
                 drawnow();
                 obj.PHInd = obj.PHInd + 1;
             end
+            obj.PH_reading = false; % Clear flag when done
         end
 
         function askPPA_ok(obj)
