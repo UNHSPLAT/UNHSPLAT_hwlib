@@ -281,9 +281,30 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples,dwellTime,PHThreshold)
+        function getPHD(obj, Nsamples, dwellTime, PHThreshold)
+            % getPHD - Collect a pulse height distribution from the SWIPS FPGA
+            %
+            %   obj.getPHD(Nsamples, dwellTime, PHThreshold)
+            %
+            %   Inputs:
+            %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
+            %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
+            %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
+            %
+            %   The raw 32-bit pipe words are decoded as follows:
+            %     Bit  31       : data valid flag
+            %     Bits 30-25    : unused
+            %     Bit  24       : anode_active
+            %     Bits 23-20    : unused
+            %     Bits 19-16    : anode position (0-15)
+            %     Bits 15-14    : unused
+            %     Bits 13-0     : pulse height value
+            %
+            %   Results are accumulated into a histogram with bin edges [200:20:15000]
+            %   and stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
+            %   bin centres and columns 2-17 correspond to Anodes 0-15.
+            %   obj.pulseHeightEdges holds the bin edges used.
 
-            
             persistent buf pv;
             
             % Allocate a buffer
