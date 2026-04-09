@@ -26,7 +26,7 @@ classdef SWIPS_OK < hwDevice
         pulseHeightData = [];
         pulseHeightEdges = [];
         PHInd = 0;
-        PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0));
+        PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
     end
 
     methods
@@ -361,7 +361,7 @@ classdef SWIPS_OK < hwDevice
             pv = libpointer('uint8Ptr', buf);
 
             % Initialise output struct
-            obj.PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0));
+            obj.PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
 
             calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
@@ -389,11 +389,13 @@ classdef SWIPS_OK < hwDevice
                         batch_act = bitshift(bitand(data32(idx), 2^24), -24);
 
                         % Concatenate batch into PH struct
-                        batchTime = repmat(datetime('now'), 1, numel(batch_ph));
+                        batchTime  = repmat(datetime('now'), 1, numel(batch_ph));
+                        batchAlive = repmat(uint32(obj.checkAlivenessCounter()), 1, numel(batch_ph));
                         obj.PH.pulseheight  = [obj.PH.pulseheight,  batch_ph];
                         obj.PH.anode_pos    = [obj.PH.anode_pos,    batch_pos];
                         obj.PH.anode_active = [obj.PH.anode_active, batch_act];
                         obj.PH.timestamp    = [obj.PH.timestamp,    batchTime];
+                        obj.PH.aliveCount   = [obj.PH.aliveCount,   batchAlive];
                     catch ME
                         warning(ME.identifier, 'Error reading pulse height data: %s', ME.message);
                     end
