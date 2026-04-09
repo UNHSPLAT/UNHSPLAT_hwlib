@@ -292,105 +292,38 @@ classdef SWIPS_OK < hwDevice
             %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
             %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
             %
-            %   The raw 32-bit pipe words are decoded as follows:
-            %     Bit  31       : data valid flag
-            %     Bits 30-25    : unused
-            %     Bit  24       : anode_active
-            %     Bits 23-20    : unused
-            %     Bits 19-16    : anode position (0-15)
-            %     Bits 15-14    : unused
-            %     Bits 13-0     : pulse height value
-            %
-            %   Results are accumulated into a histogram with bin edges [200:20:15000]
-            %   and stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
+            %   Delegates acquisition to getPH, then bins the resulting obj.PH data into a
+            %   histogram with bin edges [200:20:15000].
+            %   Results are stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
             %   bin centres and columns 2-17 correspond to Anodes 0-15.
             %   obj.pulseHeightEdges holds the bin edges used.
 
-            persistent buf pv;
-            
-            % Allocate a buffer
-            bytes = 4*1024;     % 1024 32-bit samples
-            buf(bytes,1) = uint8(0);
-            pv = libpointer('uint8Ptr',buf); 
+            % Collect raw samples into obj.PH
+            obj.getPH(Nsamples, dwellTime, PHThreshold);
 
-            %histogram settings
-            min = 200;
-            max = 15000;
+            % Histogram settings
+            minVal   = 200;
+            maxVal   = 15000;
             stepSize = 20;
-            edges = min:stepSize:max;
-            numBins = (max-min)/stepSize;
-            
-            %outputfile settings
-            histData4file = zeros(numBins,17);
-            histData4file(:,1) = edges(1:numBins)+stepSize/2;
-                  
-            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
-            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+            edges    = minVal:stepSize:maxVal;
+            numBins  = (maxVal - minVal) / stepSize;
 
-            obj.PHInd = 1;
-            while obj.PHInd <= Nsamples
-                %collect signle pulse height
-                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
-                pause(dwellTime*1E-3);
-                if mod(obj.PHInd,1024) == 0 || obj.PHInd == Nsamples
-                    try
-                        calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
-                        data = get(pv,'value');
-                        % Fix Endian
-                        data = reshape(data,4,length(data)/4);
-                        data32 = uint32(zeros(1,bytes/4));
-                        for ii=1:length(data)
-                            data32(ii) = typecast(data(:,ii),'uint32');
-                        end
-            
-                        % the format of the PH word is as follows:
-                        %   Bit       31: data valid
-                        %   Bits 30 - 25: unused (0)
-                        %   Bit       24: anode_active
-                        %   Bits 23 - 20: unused (0)
-                        %   Bits 19 - 16: anode position (number)
-                        %   Bits 15 - 14: unused (0)
-                        %   Bits 13 -  0: pulseheight
-                        
-                        % we only want to report out the valid data. drop all the rest
-                        idx = bitand(data32, 2^31) ~= 0;
-                        pulseheight = bitand(data32(idx), 2^14-1);
-                        anode_pos = bitshift(bitand(data32(idx),2^20-1), -16);
-                        anode_active = bitshift(bitand(data32(idx),2^24), -24);
-            
-                        % Plot
-                        histArray = zeros(numBins,16);
-                        
-                        histVal = zeros(length(find(anode_pos == mode(anode_pos))),16);
-                        
-                        for i=1:16
-                            indices = find(anode_pos == i-1);
-                            if(~isempty(indices))
-                                histVal(1:length(pulseheight(indices)),i) = pulseheight(indices);
-                                % histogram(selectedValues, numBins); hold on
-                            end
-                        end
-                        
-                        for i=1:16
-                            data = histVal(:,i);
-                            counts = histcounts(data(data~=0),edges); 
-                            histArray(:,i) = counts;
-                        end
+            % Build output array (col 1 = bin centres, cols 2-17 = anodes 0-15)
+            histData4file = zeros(numBins, 17);
+            histData4file(:, 1) = edges(1:numBins) + stepSize/2;
 
-                        %accumulate counts in the histogram array for the output file
-                        histData4file(:,2:17) = histData4file(:,2:17) + histArray;
-                    catch ME
-                        warning(ME.identifier,'Error reading pulse height data: %s', ME.message);
-                    end
-                    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+            pulseheight = double(obj.PH.pulseheight);
+            anode_pos   = double(obj.PH.anode_pos);
+
+            for i = 1:16
+                vals = pulseheight(anode_pos == i-1);
+                if ~isempty(vals)
+                    histData4file(:, i+1) = histcounts(vals, edges);
                 end
-                drawnow();
-                obj.PHInd = obj.PHInd + 1;
-            end     
+            end
 
-            obj.pulseHeightData = histData4file;
+            obj.pulseHeightData  = histData4file;
             obj.pulseHeightEdges = edges;
-             
         end
 
         function getPH(obj, Nsamples, dwellTime, PHThreshold)
