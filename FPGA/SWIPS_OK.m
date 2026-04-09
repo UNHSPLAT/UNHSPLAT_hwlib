@@ -26,6 +26,7 @@ classdef SWIPS_OK < hwDevice
         pulseHeightData = [];
         pulseHeightEdges = [];
         PHInd = 0;
+        PH = struct('pulseheight', {{}}, 'anode_pos', {{}}, 'anode_active', {{}}, 'timestamp', {{}});
     end
 
     methods
@@ -390,6 +391,76 @@ classdef SWIPS_OK < hwDevice
             obj.pulseHeightData = histData4file;
             obj.pulseHeightEdges = edges;
              
+        end
+
+        function getPH(obj, Nsamples, dwellTime, PHThreshold)
+            % getPH - Collect raw pulse height samples from the SWIPS FPGA
+            %
+            %   obj.getPH(Nsamples, dwellTime, PHThreshold)
+            %
+            %   Inputs:
+            %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
+            %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
+            %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
+            %
+            %   Unlike getPHD, this function does not histogram the data. Instead, each
+            %   readout batch is decoded and the raw arrays are appended to obj.PH, a struct with fields:
+            %     pulseheight  - [1 x N uint32] raw pulse height values (bits 13:0)
+            %     anode_pos    - [1 x N uint32] anode position (0-15, bits 19:16)
+            %     anode_active - [1 x N uint32] anode active flag (bit 24)
+            %     timestamp    - [1 x N datetime] acquisition timestamp for each batch
+            %
+            %   Each cell element of the struct arrays corresponds to one 1024-sample batch.
+
+            persistent buf pv;
+
+            % Allocate a buffer
+            bytes = 4*1024;     % 1024 32-bit samples
+            buf(bytes,1) = uint8(0);
+            pv = libpointer('uint8Ptr', buf);
+
+            % Initialise output struct
+            obj.PH = struct('pulseheight', {{}}, 'anode_pos', {{}}, 'anode_active', {{}}, 'timestamp', {{}});
+
+            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
+            calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+
+            obj.PHInd = 1;
+            while obj.PHInd <= Nsamples
+                % Collect single pulse height
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height
+                pause(dwellTime * 1E-3);
+                if mod(obj.PHInd, 1024) == 0 || obj.PHInd == Nsamples
+                    try
+                        calllib('okFrontPanel', 'okFrontPanel_ReadFromBlockPipeOut', obj.okfp, hex2dec('A0'), 32, bytes, pv);
+                        rawData = get(pv, 'value');
+                        % Fix Endian
+                        rawData = reshape(rawData, 4, length(rawData)/4);
+                        data32 = uint32(zeros(1, bytes/4));
+                        for ii = 1:length(data32)
+                            data32(ii) = typecast(rawData(:, ii), 'uint32');
+                        end
+
+                        % Decode valid words only
+                        idx = bitand(data32, 2^31) ~= 0;
+                        batch_ph  = bitand(data32(idx), 2^14 - 1);
+                        batch_pos = bitshift(bitand(data32(idx), 2^20 - 1), -16);
+                        batch_act = bitshift(bitand(data32(idx), 2^24), -24);
+
+                        % Append batch to PH struct
+                        batchIdx = length(obj.PH.pulseheight) + 1;
+                        obj.PH.pulseheight{batchIdx}  = batch_ph;
+                        obj.PH.anode_pos{batchIdx}    = batch_pos;
+                        obj.PH.anode_active{batchIdx} = batch_act;
+                        obj.PH.timestamp{batchIdx}    = datetime('now');
+                    catch ME
+                        warning(ME.identifier, 'Error reading pulse height data: %s', ME.message);
+                    end
+                    calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
+                end
+                drawnow();
+                obj.PHInd = obj.PHInd + 1;
+            end
         end
 
         function askPPA_ok(obj)
