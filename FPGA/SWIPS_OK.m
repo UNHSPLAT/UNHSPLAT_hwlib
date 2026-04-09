@@ -281,9 +281,9 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples,dwellTime)
+        function getPHD(obj,Nsamples,dwellTime,PHThreshold)
 
-
+            
             persistent buf pv;
             
             % Allocate a buffer
@@ -302,7 +302,7 @@ classdef SWIPS_OK < hwDevice
             histData4file = zeros(numBins,17);
             histData4file(:,1) = edges(1:numBins)+stepSize/2;
                   
-            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
+            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
 
             obj.PHInd = 1;
@@ -350,9 +350,9 @@ classdef SWIPS_OK < hwDevice
                         end
                         
                         for i=1:16
-                        data = histVal(:,i);
-                        counts = histcounts(data(data~=0),edges); 
-                        histArray(:,i) = counts;
+                            data = histVal(:,i);
+                            counts = histcounts(data(data~=0),edges); 
+                            histArray(:,i) = counts;
                         end
 
                         %accumulate counts in the histogram array for the output file
