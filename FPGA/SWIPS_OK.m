@@ -52,13 +52,7 @@ classdef SWIPS_OK < hwDevice
             obj.refreshRate = 10;
 
             function readFuncWrapper(~,~)
-                obj.readPPA_ok();
-                if obj.PH_connected
-                    if ~obj.PH_reading
-                        % If we're currently reading PH data, skip the PPA read and just update PH
-                        obj.getPH();
-                    end
-                end
+                obj.askPPA_ok();
             end
             obj.readFunc = @readFuncWrapper;
             
@@ -350,6 +344,28 @@ classdef SWIPS_OK < hwDevice
 
             obj.pulseHeightData  = histData4file;
             obj.pulseHeightEdges = edges;
+        end
+
+        function connectPH(obj)
+            if ~obj.PH_connected
+                obj.PH_connected = true;
+                while obj.PH_connected
+                    if ~obj.PH_reading
+                        obj.getPH();
+                    else
+                        warning('Pulse Height Collecting');
+                    end
+                    PH_time = tic;
+                    while toc(PH_time)<obj.refreshRate
+                        pause(.1);
+                        drawnow;
+                    end
+                end
+            end
+        end
+        
+        function disconnectPH(obj)
+            obj.PH_connected = false;
         end
 
         function getPH(obj, Nsamples, dwellTime, PHThreshold)
