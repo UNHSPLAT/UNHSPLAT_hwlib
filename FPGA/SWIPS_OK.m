@@ -313,13 +313,38 @@ classdef SWIPS_OK < hwDevice
             % Collect raw samples into obj.PH
             obj.getPH(Nsamples, dwellTime, PHThreshold);
 
-            % Histogram settings
+            [obj.pulseHeightData, obj.pulseHeightEdges] = obj.binPHD(minVal, maxVal, stepSize);
+        end
+
+        function [histData, edges] = binPHD(obj, minVal, maxVal, stepSize)
+            % binPHD - Bin existing obj.PH pulse height data into a histogram
+            %   obj.binPHD(minVal, maxVal, stepSize)
+            %
+            %   Inputs:
+            %     minVal       - Histogram lower edge (default: 200)
+            %     maxVal       - Histogram upper edge (default: 15000)
+            %     stepSize     - Histogram bin width (default: 20)
+            %
+            %   Bins the raw pulse height data in obj.PH into a histogram with bin edges [minVal:stepSize:maxVal].
+            %   Results are stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
+            %   bin centres and columns 2-17 correspond to Anodes 0-15.
+            arguments
+                obj
+                minVal   = 200
+                maxVal   = 15000
+                stepSize = 20
+            end
+
+            if isempty(obj.PH.pulseheight)
+                warning('No pulse height data to bin. Please run getPH first.');
+                return;
+            end
+
             edges    = minVal:stepSize:maxVal;
             numBins  = (maxVal - minVal) / stepSize;
 
-            % Build output array (col 1 = bin centres, cols 2-17 = anodes 0-15)
-            histData4file = zeros(numBins, 17);
-            histData4file(:, 1) = edges(1:numBins) + stepSize/2;
+            histData = zeros(numBins, 17);
+            histData(:, 1) = edges(1:numBins) + stepSize/2;
 
             pulseheight = double(obj.PH.pulseheight);
             anode_pos   = double(obj.PH.anode_pos);
@@ -327,34 +352,10 @@ classdef SWIPS_OK < hwDevice
             for i = 1:16
                 vals = pulseheight(anode_pos == i-1);
                 if ~isempty(vals)
-                    histData4file(:, i+1) = histcounts(vals, edges);
+                    histData(:, i+1) = histcounts(vals, edges);
                 end
             end
 
-            obj.pulseHeightData  = histData4file;
-            obj.pulseHeightEdges = edges;
-        end
-
-        function connectPH(obj)
-            if ~obj.PH_connected
-                obj.PH_connected = true;
-                while obj.PH_connected
-                    if ~obj.PH_reading
-                        obj.getPH();
-                    else
-                        warning('Pulse Height Collecting');
-                    end
-                    PH_time = tic;
-                    while toc(PH_time)<obj.refreshRate
-                        pause(.1);
-                        drawnow;
-                    end
-                end
-            end
-        end
-        
-        function disconnectPH(obj)
-            obj.PH_connected = false;
         end
 
         function getPH(obj, Nsamples, dwellTime, PHThreshold)
@@ -436,6 +437,28 @@ classdef SWIPS_OK < hwDevice
                 obj.PHInd = obj.PHInd + 1;
             end
             obj.PH_reading = false; % Clear flag when done
+        end
+
+         function connectPH(obj)
+            if ~obj.PH_connected
+                obj.PH_connected = true;
+                while obj.PH_connected
+                    if ~obj.PH_reading
+                        obj.getPH();
+                    else
+                        warning('Pulse Height Collecting');
+                    end
+                    PH_time = tic;
+                    while toc(PH_time)<obj.refreshRate
+                        pause(.1);
+                        drawnow;
+                    end
+                end
+            end
+        end
+        
+        function disconnectPH(obj)
+            obj.PH_connected = false;
         end
 
         function askPPA_ok(obj)

@@ -35,8 +35,6 @@ classdef caen_hvps < hwDevice
             % Set up read function for hwDevice
             obj.readFunc = @obj.getVals;
             
-            % Set refresh rate to 5 seconds and reinitialize timer
-            obj.Timer.period = 5;
             obj.postConstruct();
         end
 
