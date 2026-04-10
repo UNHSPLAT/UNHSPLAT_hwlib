@@ -42,8 +42,10 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             %   Accepts name-value pairs to set any hwDevice property
 
             %assign all properties provided
-            for i = 1:2:numel(varargin)
-                obj.(varargin{i}) = varargin{i+1};
+            if nargin > 0
+                for i = 1:2:numel(varargin)
+                    obj.(varargin{i}) = varargin{i+1};
+                end
             end
 
             obj.initTimer();
