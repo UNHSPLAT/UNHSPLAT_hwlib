@@ -52,16 +52,17 @@ classdef hVisaHw < hwDevice
             else
                 error("hVisaHw:invalidAddress", "Invalid address! Must be VISA-readable address format...");
             end
+            % Initialize instrument object
+            if isempty(obj.hVisa)
+                obj.hVisa = visa('ni', obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
+            end
         end
 
         function connectDevice(obj, varargin)
             %CONNECTDEVICE Connect to VISA device
             if ~obj.Connected
                 try
-                    % Initialize instrument object
-                    if isempty(obj.hVisa)
-                        obj.hVisa = visa('ni', obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
-                    end
+                    
                     if ~strcmp(obj.hVisa.Status, 'open')
                         fopen(obj.hVisa);
                     end
