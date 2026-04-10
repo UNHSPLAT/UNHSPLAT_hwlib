@@ -566,27 +566,6 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.PPACnt = obj.lastRead.PPACnt*nan;
         end
 
-        function restartTimer(obj)
-            %RESTARTTIMER Restarts timer if error
-
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-
-            % Restart timer
-            if obj.Connected
-                start(obj.Timer);
-            end
-        end
-
-        function stopTimer(obj)
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-        end
-
         function connected = isDeviceConnected(obj)
             % isDeviceConnected - Check if the OpalKelly device is still connected
             %   Returns true if the device is connected and responding, false otherwise
