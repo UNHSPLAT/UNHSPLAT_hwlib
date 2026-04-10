@@ -23,13 +23,10 @@ classdef swips_ok_gui_menu < handle
             uimenu(hMenu, 'Text', 'Connect FPGA',...
                 'MenuSelectedFcn', @(~,~) obj.connectFPGACallback(),...
                 'Separator', 'on');
+
             uimenu(hMenu, 'Text', 'Disconnect FPGA',...
                 'MenuSelectedFcn', @(~,~) obj.disconnectFPGACallback());
                 
-            % collect pulse height distribition
-            uimenu(hMenu, 'Text', 'Collect Pulse Height Distribution',...
-                'MenuSelectedFcn', @(~,~) obj.callPHD());
-            
             % Add acquisition settings
             uimenu(hMenu, 'Text', 'Set Acquisition Time',...
                 'MenuSelectedFcn', @(~,~) obj.setAcqTimeCallback(),...
@@ -41,7 +38,15 @@ classdef swips_ok_gui_menu < handle
             uimenu(hMenu, 'Text', 'Pulser Control',...
                 'MenuSelectedFcn', @(~,~) obj.pulserControlCallback(),...
                 'Separator', 'on');
-        end
+            
+                % collect pulse height distribition
+            uimenu(hMenu, 'Text', 'Collect Pulse Height Distribution',...
+                'MenuSelectedFcn', @(~,~) obj.callPHD());
+
+            uimenu(hMenu, 'Text', 'Connect Pulse Height',...
+                'MenuSelectedFcn', @(~,~) obj.connectPHCallback());
+
+            end
         
         function connectFPGACallback(obj)
             % Connect to SWIPS FPGA
@@ -288,6 +293,171 @@ classdef swips_ok_gui_menu < handle
                 catch ME
                     errordlg(['Error collecting pulse height distribution: ' ME.message], 'Error');
                 end
+            end
+        end
+
+        function connectPHCallback(obj)
+            % Prompt for histogram settings, then start continuous PH collection
+            % with an accumulating live histogram.
+
+            fig = figure('Name', 'Connect Pulse Height', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 420 180], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none');
+
+            % Row 1: acquisition settings
+            uicontrol('Style', 'text', 'Position', [5  135 130 35], 'String', 'Dwell time (ms)',  'FontSize', 11);
+            eb_dwell = uicontrol('Style', 'edit', 'Position', [35  113 70 25], 'String', num2str(obj.parentInst.PH_dwellTime),  'FontSize', 10);
+
+            uicontrol('Style', 'text', 'Position', [145 135 120 35], 'String', 'PH Threshold',    'FontSize', 11);
+            eb_thr   = uicontrol('Style', 'edit', 'Position', [170 113 70 25], 'String', num2str(obj.parentInst.PH_threshold), 'FontSize', 10);
+
+            % Row 2: histogram settings
+            uicontrol('Style', 'text', 'Position', [5   70 130 35], 'String', 'Hist Min',  'FontSize', 11);
+            eb_min  = uicontrol('Style', 'edit', 'Position', [35   48 70 25], 'String', '200',   'FontSize', 10);
+
+            uicontrol('Style', 'text', 'Position', [145  70 120 35], 'String', 'Hist Max',  'FontSize', 11);
+            eb_max  = uicontrol('Style', 'edit', 'Position', [170  48 70 25], 'String', '15000', 'FontSize', 10);
+
+            uicontrol('Style', 'text', 'Position', [285  70 130 35], 'String', 'Bin Width',  'FontSize', 11);
+            eb_step = uicontrol('Style', 'edit', 'Position', [305  48 70 25], 'String', '20',    'FontSize', 10);
+
+            uicontrol('Style', 'pushbutton', 'Position', [ 60 10 130 30], 'String', 'Connect', ...
+                'Callback', @startCallback);
+            uicontrol('Style', 'pushbutton', 'Position', [230 10 130 30], 'String', 'Cancel', ...
+                'Callback', @(~,~) delete(fig));
+
+            function startCallback(~,~)
+                % Validate
+                dwell   = str2double(get(eb_dwell, 'String'));
+                thr     = str2double(get(eb_thr,   'String'));
+                histMin = str2double(get(eb_min,   'String'));
+                histMax = str2double(get(eb_max,   'String'));
+                step    = str2double(get(eb_step,  'String'));
+
+                if isnan(dwell) || dwell < 0 || dwell > 100 || mod(dwell,1)~=0
+                    errordlg('Dwell time must be an integer 0-100 ms.', 'Error'); return;
+                end
+                if isnan(thr) || thr < 0 || thr > 65535 || mod(thr,1)~=0
+                    errordlg('PH Threshold must be an integer 0-65535.', 'Error'); return;
+                end
+                if isnan(histMin) || histMin < 0
+                    errordlg('Hist Min must be a non-negative number.', 'Error'); return;
+                end
+                if isnan(histMax) || histMax <= histMin
+                    errordlg('Hist Max must be greater than Hist Min.', 'Error'); return;
+                end
+                if isnan(step) || step <= 0
+                    errordlg('Bin Width must be a positive number.', 'Error'); return;
+                end
+
+                % Store settings on device
+                obj.parentInst.PH_dwellTime = dwell;
+                obj.parentInst.PH_threshold = thr;
+
+                delete(fig);
+                obj.runConnectPH(histMin, histMax, step);
+            end
+        end
+
+        function runConnectPH(obj, histMin, histMax, histStep)
+            % Open a live accumulating histogram and run connectPH in a
+            % background thread, refreshing the plot while PH_connected.
+
+            edges   = histMin : histStep : histMax;
+            nBins   = numel(edges) - 1;
+            accumData = zeros(nBins, 16); % accumulated counts per anode
+
+            % Build histogram figure
+            hFig = figure('Name', 'Live Pulse Height – Accumulating', ...
+                'NumberTitle', 'off', ...
+                'Color', 'w', ...
+                'CloseRequestFcn', @onClose);
+
+            tg  = uitabgroup('Parent', hFig);
+            ax  = gobjects(1, 16);
+            bar_h = gobjects(1, 16);
+            centers = edges(1:nBins) + histStep/2;
+
+            for i = 1:16
+                tab      = uitab('Parent', tg, 'Title', sprintf('Anode %d', i-1));
+                ax(i)    = axes('Parent', tab); %#ok<LAXES>
+                bar_h(i) = bar(ax(i), centers, zeros(1, nBins), 1, 'FaceColor', [0.2 0.5 0.9]);
+                xlabel(ax(i), 'Pulse Amplitude [arb.]');
+                ylabel(ax(i), 'Counts (accumulated)');
+                title(ax(i),  sprintf('Anode %d', i-1));
+                % Right-click context menu to clear accumulated data
+                cm = uicontextmenu('Parent', hFig);
+                uimenu(cm, 'Text', 'Clear Accumulated Data', ...
+                    'MenuSelectedFcn', @(~,~) clearAccum());
+                ax(i).ContextMenu = cm;
+                bar_h(i).ContextMenu = cm;
+            end
+
+            % Disconnect button
+            uicontrol('Parent', hFig, ...
+                'Style', 'pushbutton', ...
+                'Units', 'normalized', ...
+                'Position', [0.35 0.01 0.3 0.04], ...
+                'String', 'Disconnect Pulse Height', ...
+                'ForegroundColor', [0.8 0 0], ...
+                'FontSize', 10, ...
+                'Callback', @(~,~) obj.parentInst.disconnectPH());
+
+            drawnow;
+
+            % Listener fires whenever PH_reading changes.
+            % Accumulate only when a batch just completed (PH_reading → false).
+            phListener = addlistener(obj.parentInst, 'PH_reading', 'PostSet', ...
+                @(~,~) onBatchComplete());
+
+            % % Start continuous collection in a timer so the GUI stays responsive
+            % collectTimer = timer( ...
+            %     'Name',          'connectPH_timer', ...
+            %     'ExecutionMode', 'singleShot', ...
+            %     'StartDelay',    0, ...
+            %     'TimerFcn',      @(~,~) obj.parentInst.connectPH());
+            % start(collectTimer);
+
+            obj.parentInst.connectPH();
+
+            function onBatchComplete()
+                % Only accumulate when a batch has just finished
+                if obj.parentInst.PH_reading || ~isvalid(hFig)
+                    return;
+                end
+                [newData, ~] = obj.parentInst.binPHD(histMin, histMax, histStep);
+                if isempty(newData); return; end
+                % newData col 1 = centres, cols 2-17 = anodes 0-15
+                accumData = accumData + newData(:, 2:end);
+                for k = 1:16
+                    if isvalid(bar_h(k))
+                        set(bar_h(k), 'YData', accumData(:, k)');
+                    end
+                end
+                drawnow limitrate;
+            end
+
+            function clearAccum()
+                accumData = zeros(nBins, 16);
+                for k = 1:16
+                    if isvalid(bar_h(k))
+                        set(bar_h(k), 'YData', zeros(1, nBins));
+                    end
+                end
+                drawnow;
+            end
+
+            function onClose(~,~)
+                obj.parentInst.disconnectPH();
+                delete(phListener);
+                try
+                    stop(collectTimer);
+                    delete(collectTimer);
+                catch
+                end
+                delete(hFig);
             end
         end
 
