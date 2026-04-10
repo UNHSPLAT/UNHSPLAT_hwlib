@@ -18,14 +18,10 @@ classdef leyboldGraphix3 < hVisaHw
 
     
     methods
-        function obj = leyboldGraphix3(address,funcConfig)
+        function obj = leyboldGraphix3(address,varargin)
             %LEYBOLDGRAPHIX3 Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
-            obj@hVisaHw(address,funcConfig);
+            if nargin < 1; address = ''; end
+            obj@hVisaHw(address,varargin{:});
 
             obj.hVisa.BaudRate = 38400;
             obj.hVisa.Terminator = 4;

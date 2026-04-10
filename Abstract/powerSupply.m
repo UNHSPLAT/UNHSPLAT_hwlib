@@ -21,15 +21,11 @@ classdef powerSupply < hVisaHw
     end
     
     methods
-        function obj = powerSupply(address,funcConfig)
+        function obj = powerSupply(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
+            if nargin < 1; address = ''; end
             
-            obj@hVisaHw(address,funcConfig);
+            obj@hVisaHw(address,varargin{:});
         end
     end
 

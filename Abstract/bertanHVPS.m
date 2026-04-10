@@ -7,10 +7,9 @@ classdef bertanHVPS < powerSupply
     end
 
     methods
-        function obj = bertanHVPS(address)
+        function obj = bertanHVPS(address,varargin)
             %BERTANHVPS Construct an instance of this class
-            %   Detailed explanation goes here
-            obj@powerSupply(address);
+            obj@powerSupply(address,varargin{:});
 
             obj.getAllSettings;
         end

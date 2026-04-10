@@ -7,10 +7,9 @@ classdef multimeter < hVisaHw
     end
     
     methods
-        function obj = multimeter(address,funcConfig)
+        function obj = multimeter(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            obj@hVisaHw(address,funcConfig);
+            obj@hVisaHw(address,varargin{:});
         end
     end
 end

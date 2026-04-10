@@ -17,14 +17,10 @@ classdef srsPS350 < srsHVPS
     end
 
     methods
-        function obj = srsPS350(address,funcConfig)
+        function obj = srsPS350(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
-            obj@srsHVPS(address,funcConfig);
+            if nargin < 1; address = ''; end
+            obj@srsHVPS(address,varargin{:});
             obj.lastRead = nan;
             obj.readFunc = @(x) x.measVasync();
         end

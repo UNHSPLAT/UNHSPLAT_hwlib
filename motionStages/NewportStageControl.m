@@ -19,22 +19,15 @@ classdef NewportStageControl < hwDevice
     end
 
     methods
-        function obj = NewportStageControl(Address,groups,funcConfig)
-            % Initialize control
-            arguments
-                Address string
-                groups = ["Group1","Group2","Group3"]
-                funcConfig = @(x) x
-            end
+        function obj = NewportStageControl(Address,varargin)
             
             % Call parent constructor
-            obj@hwDevice(funcConfig);
+            obj@hwDevice(varargin{:});
             
             obj.Connected = false;
             obj.Tag = '3axisNewportStage';
             
             obj.Address = Address;
-            obj.groups = groups;
             obj.lastRead = zeros(1,length(obj.groups))*nan;
             
             % Set up read function for hwDevice

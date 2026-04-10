@@ -23,20 +23,12 @@ classdef caen_hvps < hwDevice
     end
 
     methods
-        function obj = caen_hvps(Address,funcConfig,LBus_Address,config_filename)
-            arguments
-                Address string=''
-                funcConfig = @(x) x
-                LBus_Address = 2
-                config_filename = 'config_caenPS.ini'
-            end
+        function obj = caen_hvps(Address,varargin)
             
             % Call parent constructor
-            obj@hwDevice(funcConfig);
+            obj@hwDevice(varargin{:});
             
             obj.Address = Address;
-            obj.LBus_Address = LBus_Address;
-            obj.equip_config_filename = config_filename;
             obj.lastRead = [nan,nan,nan,nan];
             obj.lastIRead = [nan,nan,nan,nan];
             

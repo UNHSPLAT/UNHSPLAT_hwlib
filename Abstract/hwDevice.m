@@ -9,7 +9,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties 
         Tag string = "" % User-configurable label for device
-        funcConfig % Configuration function
+        funcConfig = @(x) x % Configuration function
     end
 
     properties (SetObservable) 
@@ -37,12 +37,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     end
 
     methods
-        function obj = hwDevice(funcConfig)
+        function obj = hwDevice(varargin)
             %HWDEVICE Construct an instance of this class
-            arguments
-                funcConfig = @(x) x;
+            %   Accepts name-value pairs to set any hwDevice property
+
+            %assign all properties provided
+            for i = 1:2:numel(varargin)
+                obj.(varargin{i}) = varargin{i+1};
             end
-            obj.funcConfig = funcConfig;
+
             obj.initTimer();
         end
 

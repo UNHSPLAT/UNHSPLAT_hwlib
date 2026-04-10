@@ -10,14 +10,10 @@ classdef keithley6485 < hVisaHw
     end
 
     methods
-        function obj = keithley6485(address,funcConfig)
+        function obj = keithley6485(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
-            obj@hVisaHw(address,funcConfig);
+            if nargin < 1; address = ''; end
+            obj@hVisaHw(address,varargin{:});
             obj.lastRead = nan;
             obj.readFunc = @(x) x.readDev();
         end

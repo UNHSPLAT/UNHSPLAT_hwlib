@@ -17,17 +17,14 @@ classdef hVisaHw < hwDevice
     end
 
     methods
-        function obj = hVisaHw(address, funcConfig)
+        function obj = hVisaHw(address, varargin)
             %HVISAHW Construct an instance of this class
             %   address: Device address (numeric, string, or VISA format)
-            %   funcConfig: Configuration function (optional)
-            arguments
-                address string = '';
-                funcConfig = @(x) x;
-            end
+            %   varargin: Name-value pairs for hwDevice properties
+            if nargin < 1; address = ''; end
             
             % Call superclass constructor
-            obj@hwDevice(funcConfig);
+            obj@hwDevice(varargin{:});
             
             % Format and store the address
             if isnumeric(address)

@@ -36,20 +36,15 @@ classdef SWIPS_OK < hwDevice
     end
 
     methods
-        function obj = SWIPS_OK(bitfile, funcConfig)
-            arguments
-                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
-                funcConfig = @(x) x;
-            end
-            
-            % Call parent constructor
-            obj@hwDevice(funcConfig);
+        function obj = SWIPS_OK(varargin)
 
-            obj.bitfile = bitfile;
+            % Call parent constructor
+            obj@hwDevice(varargin{:});
+
+            if obj.bitfile == ""
+                obj.bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit'));
+            end
             obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
-            
-            % Override timer settings for SWIPS_OK
-            obj.refreshRate = 10;
 
             function readFuncWrapper(~,~)
                 obj.askPPA_ok();
@@ -69,8 +64,6 @@ classdef SWIPS_OK < hwDevice
 
                     % Construct FrontPanel
                     obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
-                    
-    %                 obj.close();
 
                     % get device number
                     n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
