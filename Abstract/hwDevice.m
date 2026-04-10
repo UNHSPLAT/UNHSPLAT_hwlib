@@ -20,6 +20,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         refreshRate = 4 % Timer refresh rate in seconds
         Timer = timer % Timer object for periodic reads
         read_delay = nan % Time taken for last read operation
+        autoConnect = false % Automatically connect on object creation
     end
 
     properties (Hidden)
@@ -49,6 +50,15 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
             end
 
             obj.initTimer();
+        end
+
+        function postConstruct(obj)
+            %POSTCONSTRUCT Call at the end of each concrete subclass constructor
+            %   Runs post-initialization logic (e.g. autoConnect) after the
+            %   full subclass constructor chain has completed.
+            if obj.autoConnect
+                obj.connectDevice();
+            end
         end
 
         function read(obj,~,~) 

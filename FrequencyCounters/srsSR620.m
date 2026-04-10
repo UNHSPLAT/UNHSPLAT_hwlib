@@ -17,6 +17,7 @@ classdef srsSR620 < frequencyCounter
             %SRSSR620 Construct an instance of this class
             obj@frequencyCounter(address,varargin{:});
             obj.readFunc = @(x) x.measure_async();
+            obj.postConstruct();
         end
 
         function dataOut = measure(obj)

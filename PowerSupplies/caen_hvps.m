@@ -37,6 +37,7 @@ classdef caen_hvps < hwDevice
             
             % Set refresh rate to 5 seconds and reinitialize timer
             obj.Timer.period = 5;
+            obj.postConstruct();
         end
 
         function con_stat = connectDevice(obj)

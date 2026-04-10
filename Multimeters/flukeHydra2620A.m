@@ -15,6 +15,7 @@ classdef flukeHydra2620A < multimeter
             obj.lastRead = [nan,nan,nan,nan];
 
             obj.readFunc =@(self)self.read_scan_async;
+            obj.postConstruct();
         end
 
         function dataOut = read_scan(obj)

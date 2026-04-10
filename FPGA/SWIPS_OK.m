@@ -50,7 +50,7 @@ classdef SWIPS_OK < hwDevice
                 obj.askPPA_ok();
             end
             obj.readFunc = @readFuncWrapper;
-            
+            obj.postConstruct();
         end
 
         function connectDevice(obj)
@@ -121,10 +121,6 @@ classdef SWIPS_OK < hwDevice
 
         function connect(obj)
             obj.funcConfig(obj);
-            % obj.Timer = timer('ExecutionMode','fixedRate',...
-            %                     'Period',1,...
-            %                     'TimerFcn',@(~,~) obj.readData());
-            % start(obj.Timer);
         end
 
         function disconnectDevice(obj)

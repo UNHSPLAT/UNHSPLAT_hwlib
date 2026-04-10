@@ -23,6 +23,7 @@ classdef srsPS350 < srsHVPS
             obj@srsHVPS(address,varargin{:});
             obj.lastRead = nan;
             obj.readFunc = @(x) x.measVasync();
+            obj.postConstruct();
         end
     end
 end

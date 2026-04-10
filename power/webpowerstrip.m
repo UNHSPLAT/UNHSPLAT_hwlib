@@ -30,6 +30,7 @@ classdef webpowerstrip < hwDevice
             end
 
             obj.readFunc = @reader;
+            obj.postConstruct();
         end
         
         function disconnectDevice(obj)

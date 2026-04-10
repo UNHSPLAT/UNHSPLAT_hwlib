@@ -46,7 +46,7 @@ classdef NewportStageControl < hwDevice
                 warning('Newport Stage not integrated');
                 obj.Connected = false;
             end
-            
+            obj.postConstruct();
         end
 
         function disconnectDevice(obj)

@@ -21,7 +21,7 @@ classdef bertan225_10R < bertanHVPS
             %BERTAN225_10R Construct an instance of this class
             %   Detailed explanation goes here
             obj@bertanHVPS(address,varargin{:});
-
+            obj.postConstruct();
         end
     end
 end
