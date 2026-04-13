@@ -41,7 +41,7 @@ classdef SWIPS_OK < hwDevice
             % Call parent constructor
             obj@hwDevice(varargin{:});
 
-            if obj.bitfile == ""
+            if isempty(obj.bitfile)
                 obj.bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit'));
             end
             obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
