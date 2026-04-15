@@ -444,7 +444,22 @@ classdef SWIPS_OK < hwDevice
             obj.PHInd=1;
         end
 
-         function connectPH(obj)
+         function connectPH(obj, refreshRate)
+            % connectPH - Continuously collect pulse height data until disconnected
+            %
+            %   obj.connectPH()               % uses obj.refreshRate between acquisitions
+            %   obj.connectPH(refreshRate)    % uses the specified refresh rate (seconds)
+            %
+            %   Sets PH_connected = true and repeatedly calls getPH() in a loop.
+            %   After each acquisition, waits refreshRate seconds before the next.
+            %   If logPH is true, updatePHLog() is called after each acquisition.
+            %   Call disconnectPH() to exit the loop.
+            %
+            %   Inputs:
+            %     refreshRate  - Time between acquisitions in seconds (default: obj.refreshRate)
+            if nargin < 2 || isempty(refreshRate)
+                refreshRate = obj.refreshRate;
+            end
             if ~obj.PH_connected
                 obj.PH_connected = true;
                 while obj.PH_connected
@@ -457,7 +472,7 @@ classdef SWIPS_OK < hwDevice
                         warning('Pulse Height Collecting');
                     end
                     PH_time = tic;
-                    while toc(PH_time)<obj.refreshRate
+                    while toc(PH_time) < refreshRate
                         pause(.1);
                         drawnow;
                     end
