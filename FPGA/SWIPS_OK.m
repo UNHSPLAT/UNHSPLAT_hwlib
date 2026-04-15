@@ -441,6 +441,7 @@ classdef SWIPS_OK < hwDevice
                 obj.PHInd = obj.PHInd + 1;
             end
             obj.PH_reading = false; % Clear flag when done
+            obj.PHInd=1;
         end
 
          function connectPH(obj)
