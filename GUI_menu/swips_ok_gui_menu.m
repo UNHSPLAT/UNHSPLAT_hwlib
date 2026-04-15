@@ -419,7 +419,7 @@ classdef swips_ok_gui_menu < handle
 %                 'StartDelay',    0, ...
 %                 'TimerFcn',      @(~,~) obj.parentInst.connectPH());
 %             start(collectTimer);
-
+            obj.parentInst.logPH = true;
             obj.parentInst.connectPH();
 
             function onBatchComplete()

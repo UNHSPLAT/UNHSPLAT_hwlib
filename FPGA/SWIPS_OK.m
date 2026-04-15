@@ -33,6 +33,10 @@ classdef SWIPS_OK < hwDevice
         PH_Nsamples  = 1000;   % default number of pulse height samples
         PH_dwellTime = 1;     % default dwell time between triggers (ms)
         PH_threshold = 100;    % default lower pulse height threshold (0-65535)
+        
+        logPH = false;          % flag to control whether PH data should be logged to CSV
+        PH_DataDirectory = "";  % data directory for PH logging; accepts string or function handle pointer
+        PH_TestSequence  = 0;   % test sequence for PH logging; accepts scalar or function handle pointer
     end
 
     methods
@@ -445,6 +449,9 @@ classdef SWIPS_OK < hwDevice
                 while obj.PH_connected
                     if ~obj.PH_reading
                         obj.getPH();
+                        if obj.logPH
+                            obj.updatePHLog();
+                        end
                     else
                         warning('Pulse Height Collecting');
                     end
@@ -459,6 +466,48 @@ classdef SWIPS_OK < hwDevice
         
         function disconnectPH(obj)
             obj.PH_connected = false;
+        end
+
+        function updatePHLog(obj, fname)
+            % updatePHLog - Save current PH struct to CSV, similar to labGUI updateLog
+            %
+            %   obj.updatePHLog()        % builds filename from PH_DataDirectory and PH_TestSequence
+            %   obj.updatePHLog(fname)   % writes to the specified CSV file
+            %
+            %   PH_DataDirectory and PH_TestSequence may be set to function
+            %   handles (e.g. @() guiObj.DataDir) so that the values are
+            %   resolved at call-time rather than at assignment-time.
+
+            if isempty(obj.PH.pulseheight)
+                warning('SWIPS_OK:updatePHLog', 'No pulse height data to log.');
+                return;
+            end
+
+            % Resolve DataDirectory (support function handle pointer)
+            if isa(obj.PH_DataDirectory, 'function_handle')
+                dataDir = obj.PH_DataDirectory();
+            else
+                dataDir = obj.PH_DataDirectory;
+            end
+
+            % Resolve TestSequence (support function handle pointer)
+            if isa(obj.PH_TestSequence, 'function_handle')
+                testSeq = obj.PH_TestSequence();
+            else
+                testSeq = obj.PH_TestSequence;
+            end
+
+            if nargin < 2
+                fname = fullfile(char(dataDir), ['ph_readings_', num2str(testSeq), '.csv']);
+            end
+
+            phTable = struct2table(obj.PH, 'AsArray', true);
+
+            if isfile(fname)
+                writetable(phTable, fname, 'WriteMode', 'append', 'WriteVariableNames', false);
+            else
+                writetable(phTable, fname);
+            end
         end
 
         function askPPA_ok(obj)
