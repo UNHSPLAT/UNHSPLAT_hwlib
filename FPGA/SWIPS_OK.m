@@ -27,7 +27,7 @@ classdef SWIPS_OK < hwDevice
         pulseHeightData = [];
         pulseHeightEdges = [];
         PHInd = 0;
-        PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
+        PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'PHInd', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
         PH_connected = false;
         PH_reading = false;
         PH_Nsamples  = 1000;   % default number of pulse height samples
@@ -214,7 +214,7 @@ classdef SWIPS_OK < hwDevice
                     disp('Odd Pulser Disabled');
                 end
                 calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
-            else
+            else 
                 warning('Device not connected. Cannot configure odd pulser.');
             end
         end
@@ -377,7 +377,7 @@ classdef SWIPS_OK < hwDevice
             %   arrays from every readout batch are concatenated into obj.PH, a struct with fields:
             %     pulseheight  - [1 x N uint32] raw pulse height values (bits 13:0)
             %     anode_pos    - [1 x N uint32] anode position (0-15, bits 19:16)
-            %     anode_active - [1 x N uint32] anode active flag (bit 24)
+            %     PHInd        - [1 x N uint32] sample index (obj.PHInd) at time of each batch read
             %     timestamp    - [1 x N datetime] read timestamp, one entry per valid sample
             %     aliveCount   - [1 x N uint32] FPGA aliveness counter value at each batch read
             arguments
@@ -396,7 +396,7 @@ classdef SWIPS_OK < hwDevice
             pv = libpointer('uint8Ptr', buf);
 
             % Initialise output struct
-            obj.PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'anode_active', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
+            obj.PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'PHInd', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
 
             calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
@@ -421,14 +421,14 @@ classdef SWIPS_OK < hwDevice
                         idx = bitand(data32, 2^31) ~= 0;
                         batch_ph  = bitand(data32(idx), 2^14 - 1);
                         batch_pos = bitshift(bitand(data32(idx), 2^20 - 1), -16);
-                        batch_act = bitshift(bitand(data32(idx), 2^24), -24);
 
                         % Concatenate batch into PH struct
                         batchTime  = repmat(datetime('now'), 1, numel(batch_ph));
                         batchAlive = repmat(uint32(obj.checkAlivenessCounter()), 1, numel(batch_ph));
+                        batchInd   = repmat(uint32(obj.PHInd), 1, numel(batch_ph));
                         obj.PH.pulseheight  = [obj.PH.pulseheight,  batch_ph];
                         obj.PH.anode_pos    = [obj.PH.anode_pos,    batch_pos];
-                        obj.PH.anode_active = [obj.PH.anode_active, batch_act];
+                        obj.PH.PHInd        = [obj.PH.PHInd,        batchInd];
                         obj.PH.timestamp    = [obj.PH.timestamp,    batchTime];
                         obj.PH.aliveCount   = [obj.PH.aliveCount,   batchAlive];
                     catch ME
