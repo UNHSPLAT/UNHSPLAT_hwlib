@@ -500,8 +500,8 @@ classdef SWIPS_OK < hwDevice
             if nargin < 2
                 fname = fullfile(char(dataDir), ['ph_readings_', num2str(testSeq), '.csv']);
             end
-
-            phTable = struct2table(obj.PH, 'AsArray', true);
+                
+            phTable = struct2table(structfun(@(x)x',obj.PH,'UniformOutput',false));
 
             if isfile(fname)
                 writetable(phTable, fname, 'WriteMode', 'append', 'WriteVariableNames', false);
