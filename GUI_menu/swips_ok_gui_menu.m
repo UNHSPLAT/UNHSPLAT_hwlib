@@ -40,10 +40,10 @@ classdef swips_ok_gui_menu < handle
                 'Separator', 'on');
             
                 % collect pulse height distribition
-            uimenu(hMenu, 'Text', 'Collect Pulse Height Distribution',...
+            uimenu(hMenu, 'Text', 'Collect Single Pulse Height Distribution',...
                 'MenuSelectedFcn', @(~,~) obj.callPHD());
 
-            uimenu(hMenu, 'Text', 'Connect Pulse Height',...
+            uimenu(hMenu, 'Text', 'Connect Pulse Height Collection',...
                 'MenuSelectedFcn', @(~,~) obj.connectPHCallback());
 
             end
@@ -373,10 +373,25 @@ classdef swips_ok_gui_menu < handle
 
             btnH = 0.055; btnGap = 0.015;
             ypos = ypos - dy;
+
+            % Connect button with embedded progress bar
             hConnectBtn = uicontrol('Parent', lpanel, 'Style', 'pushbutton', 'Units', 'normalized', ...
                 'Position', [0.05 ypos 0.9 btnH], 'String', 'Connect', ...
                 'FontSize', 10, 'BackgroundColor', [0.3 0.75 0.3], ...
                 'Callback', @connectCB);
+
+            % Progress bar overlaid on top of the connect button area
+            progAxH = btnH * 0.4;
+            progAx = axes('Parent', lpanel, 'Units', 'normalized', ...
+                'Position', [0.05 ypos 0.9 progAxH], ...
+                'XLim', [0 1], 'YLim', [0 1], ...
+                'XTick', [], 'YTick', [], 'Box', 'on', ...
+                'Visible', 'off');
+            progPatch = patch(progAx, [0 0 0 0], [0 1 1 0], [0.2 0.6 1.0], 'Visible', 'off');
+            progText = uicontrol('Parent', lpanel, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.05 ypos+progAxH 0.9 btnH-progAxH], ...
+                'String', '', 'FontSize', 8, 'Visible', 'off');
+            progListener = [];
 
             ypos = ypos - btnH - btnGap;
             uicontrol('Parent', lpanel, 'Style', 'pushbutton', 'Units', 'normalized', ...
@@ -476,12 +491,27 @@ classdef swips_ok_gui_menu < handle
 
                 set(hConnectBtn, 'Enable', 'off');
 
+                % Show progress bar and counter
+                set(progAx, 'Visible', 'on');
+                set(progPatch, 'Visible', 'on', 'XData', [0 0 0 0]);
+                set(progText, 'Visible', 'on', 'String', sprintf('0 / %d', nsamp));
+
+                % Listener on PHInd to update progress bar during each acquisition cycle
+                delete(progListener);
+                progListener = addlistener(obj.parentInst, 'PHInd', 'PostSet', ...
+                    @(~,~) updateProgress(nsamp));
+
                 delete(phListener);
                 phListener = addlistener(obj.parentInst, 'PH_reading', 'PostSet', ...
                     @(~,~) onBatchComplete());
 
                 obj.parentInst.connectPH(refresh);
 
+                % Hide progress bar when loop exits
+                delete(progListener); progListener = [];
+                if isvalid(progAx),    set(progAx, 'Visible', 'off'); end
+                if isvalid(progPatch), set(progPatch, 'Visible', 'off'); end
+                if isvalid(progText),  set(progText, 'Visible', 'off'); end
                 if isvalid(hConnectBtn)
                     set(hConnectBtn, 'Enable', 'on');
                 end
@@ -491,6 +521,11 @@ classdef swips_ok_gui_menu < handle
                 obj.parentInst.disconnectPH();
                 delete(phListener);
                 phListener = [];
+                delete(progListener);
+                progListener = [];
+                if isvalid(progAx),    set(progAx, 'Visible', 'off'); end
+                if isvalid(progPatch), set(progPatch, 'Visible', 'off'); end
+                if isvalid(progText),  set(progText, 'Visible', 'off'); end
                 if isvalid(hConnectBtn)
                     set(hConnectBtn, 'Enable', 'on');
                 end
@@ -524,7 +559,18 @@ classdef swips_ok_gui_menu < handle
             function onClose(~,~)
                 obj.parentInst.disconnectPH();
                 delete(phListener);
+                delete(progListener);
                 delete(hFig);
+            end
+
+            function updateProgress(Nsamples)
+                if isvalid(progPatch)
+                    frac = min(obj.parentInst.PHInd / Nsamples, 1);
+                    set(progPatch, 'XData', [0 frac frac 0]);
+                end
+                if isvalid(progText)
+                    set(progText, 'String', sprintf('%d / %d', obj.parentInst.PHInd, Nsamples));
+                end
             end
         end
 
