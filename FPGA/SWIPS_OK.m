@@ -406,6 +406,15 @@ classdef SWIPS_OK < hwDevice
                 % Collect single pulse height
                 calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height
                 pause(dwellTime * 1E-3);
+
+                % Check if pulse height is triggered
+                calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
+                while ~calllib('okFrontPanel', 'okFrontPanel_IsTriggered', obj.okfp, hex2dec('60'), 1)
+                    % documentation says is triggered of ppa is bit 1, but other code is showing bit1 is dacs updated
+                    pause(dwellTime * 1E-3);
+                    calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
+                end
+                
                 if mod(obj.PHInd, 1024) == 0 || obj.PHInd == Nsamples
                     try
                         calllib('okFrontPanel', 'okFrontPanel_ReadFromBlockPipeOut', obj.okfp, hex2dec('A0'), 32, bytes, pv);
