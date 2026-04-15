@@ -339,16 +339,16 @@ classdef SWIPS_OK < hwDevice
                 stepSize = 20
             end
 
+            edges    = minVal:stepSize:maxVal;
+            numBins  = (maxVal - minVal) / stepSize;
+            
+            histData = zeros(numBins, 17);
+            histData(:, 1) = edges(1:numBins) + stepSize/2;
+
             if isempty(obj.PH.pulseheight)
                 warning('No pulse height data to bin. Please run getPH first.');
                 return;
             end
-
-            edges    = minVal:stepSize:maxVal;
-            numBins  = (maxVal - minVal) / stepSize;
-
-            histData = zeros(numBins, 17);
-            histData(:, 1) = edges(1:numBins) + stepSize/2;
 
             pulseheight = double(obj.PH.pulseheight);
             anode_pos   = double(obj.PH.anode_pos);
