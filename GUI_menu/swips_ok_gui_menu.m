@@ -341,6 +341,14 @@ classdef swips_ok_gui_menu < handle
 
             ypos = ypos - dy;
             uicontrol('Parent', lpanel, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.05 ypos 0.9 lblH], 'String', 'Refresh Rate (s)', ...
+                'FontSize', 10, 'HorizontalAlignment', 'left');
+            ypos = ypos - edH;
+            eb_refresh = uicontrol('Parent', lpanel, 'Style', 'edit', 'Units', 'normalized', ...
+                'Position', [0.05 ypos 0.9 edH], 'String', num2str(obj.parentInst.refreshRate), 'FontSize', 10);
+
+            ypos = ypos - dy;
+            uicontrol('Parent', lpanel, 'Style', 'text', 'Units', 'normalized', ...
                 'Position', [0.05 ypos 0.9 lblH], 'String', 'Hist Min', ...
                 'FontSize', 10, 'HorizontalAlignment', 'left');
             ypos = ypos - edH;
@@ -382,6 +390,12 @@ classdef swips_ok_gui_menu < handle
                 'FontSize', 10, ...
                 'Callback', @(~,~) clearAccum());
 
+            ypos = ypos - btnH - btnGap;
+            uicontrol('Parent', lpanel, 'Style', 'checkbox', 'Units', 'normalized', ...
+                'Position', [0.05 ypos 0.9 btnH], 'String', 'Enable Data Logging', ...
+                'FontSize', 10, 'Value', obj.parentInst.logPH, ...
+                'Callback', @(src,~) set(obj.parentInst, 'logPH', logical(src.Value)));
+
             %% ---- Right panel: histogram tabs ----
             histMin  = 200;
             histMax  = 15000;
@@ -416,12 +430,13 @@ classdef swips_ok_gui_menu < handle
             end
 
             function connectCB(~,~)
-                dwell   = str2double(get(eb_dwell,  'String'));
-                thr     = str2double(get(eb_thr,    'String'));
-                nsamp   = str2double(get(eb_nsamp,  'String'));
-                hMin    = str2double(get(eb_min,    'String'));
-                hMax    = str2double(get(eb_max,    'String'));
-                step    = str2double(get(eb_step,   'String'));
+                dwell   = str2double(get(eb_dwell,   'String'));
+                thr     = str2double(get(eb_thr,     'String'));
+                nsamp   = str2double(get(eb_nsamp,   'String'));
+                refresh = str2double(get(eb_refresh, 'String'));
+                hMin    = str2double(get(eb_min,     'String'));
+                hMax    = str2double(get(eb_max,     'String'));
+                step    = str2double(get(eb_step,    'String'));
 
                 if isnan(dwell) || dwell < 0 || dwell > 100 || mod(dwell,1)~=0
                     errordlg('Dwell time must be an integer 0-100 ms.', 'Error'); return;
@@ -431,6 +446,9 @@ classdef swips_ok_gui_menu < handle
                 end
                 if isnan(nsamp) || nsamp < 1 || mod(nsamp,1)~=0
                     errordlg('N Samples must be a positive integer.', 'Error'); return;
+                end
+                if isnan(refresh) || refresh < 0
+                    errordlg('Refresh Rate must be a non-negative number.', 'Error'); return;
                 end
                 if isnan(hMin) || hMin < 0
                     errordlg('Hist Min must be a non-negative number.', 'Error'); return;
@@ -462,7 +480,7 @@ classdef swips_ok_gui_menu < handle
                 phListener = addlistener(obj.parentInst, 'PH_reading', 'PostSet', ...
                     @(~,~) onBatchComplete());
 
-                obj.parentInst.connectPH();
+                obj.parentInst.connectPH(refresh);
 
                 if isvalid(hConnectBtn)
                     set(hConnectBtn, 'Enable', 'on');
