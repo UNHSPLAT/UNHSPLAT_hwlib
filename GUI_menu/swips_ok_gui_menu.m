@@ -389,10 +389,13 @@ classdef swips_ok_gui_menu < handle
                 'Callback', @(~,~) clearAccum());
 
             ypos = ypos - btnH - btnGap;
+            function logSetter(src,~)
+                obj.parentInst.logPH = logical(src.Value)
+            end
             uicontrol('Parent', acqTab, 'Style', 'checkbox', 'Units', 'normalized', ...
                 'Position', [0.05 ypos 0.9 btnH], 'String', 'Enable Data Logging', ...
                 'FontSize', 10, 'Value', obj.parentInst.logPH, ...
-                'Callback', @(src,~) set(obj.parentInst, 'logPH', logical(src.Value)));
+                'Callback', @logSetter);
 
             %% -- Histogram tab --
             ypos = 0.92;
