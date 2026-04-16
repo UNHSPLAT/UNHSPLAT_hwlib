@@ -536,7 +536,6 @@ classdef swips_ok_gui_menu < handle
             function onClose(~,~)
                 obj.parentInst.disconnectPH();
                 delete(phListener);
-                delete(progListener);
                 delete(hFig);
             end
 
