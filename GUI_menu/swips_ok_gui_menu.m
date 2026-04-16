@@ -316,8 +316,9 @@ classdef swips_ok_gui_menu < handle
 
             % Two-tab layout inside the left panel
             ltg = uitabgroup('Parent', lpanel, 'Units', 'normalized', 'Position', [0 0 1 1]);
-            acqTab  = uitab('Parent', ltg, 'Title', 'Acquisition');
-            histTab = uitab('Parent', ltg, 'Title', 'Histogram');
+            acqTab   = uitab('Parent', ltg, 'Title', 'Acquisition');
+            histTab  = uitab('Parent', ltg, 'Title', 'Histogram');
+            statsTab = uitab('Parent', ltg, 'Title', 'Stats');
 
             dy = 0.065; lblH = 0.04; edH = 0.045;
 
@@ -407,6 +408,33 @@ classdef swips_ok_gui_menu < handle
             ypos = ypos - edH;
             eb_step = uicontrol('Parent', histTab, 'Style', 'edit', 'Units', 'normalized', ...
                 'Position', [0.05 ypos 0.9 edH], 'String', '20', 'FontSize', 10);
+
+            %% -- Stats tab --
+            uicontrol('Parent', statsTab, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.02 0.94 0.46 0.04], 'String', 'Anode', ...
+                'FontSize', 9, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+            uicontrol('Parent', statsTab, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.48 0.94 0.25 0.04], 'String', 'Counts', ...
+                'FontSize', 9, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+            uicontrol('Parent', statsTab, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.73 0.94 0.25 0.04], 'String', 'Mean PH', ...
+                'FontSize', 9, 'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+            statCountLabels = gobjects(1, 16);
+            statMeanLabels  = gobjects(1, 16);
+            rowH = 0.05;
+            for si = 1:16
+                ry = 0.94 - si * rowH;
+                uicontrol('Parent', statsTab, 'Style', 'text', 'Units', 'normalized', ...
+                    'Position', [0.02 ry 0.46 rowH], ...
+                    'String', sprintf('Anode %d', si-1), ...
+                    'FontSize', 9, 'HorizontalAlignment', 'center');
+                statCountLabels(si) = uicontrol('Parent', statsTab, 'Style', 'text', ...
+                    'Units', 'normalized', 'Position', [0.48 ry 0.25 rowH], ...
+                    'String', '0', 'FontSize', 9, 'HorizontalAlignment', 'center');
+                statMeanLabels(si) = uicontrol('Parent', statsTab, 'Style', 'text', ...
+                    'Units', 'normalized', 'Position', [0.73 ry 0.25 rowH], ...
+                    'String', '0', 'FontSize', 9, 'HorizontalAlignment', 'center');
+            end
 
             %% ---- Right panel: histogram tabs ----
             histMin  = 200;
@@ -501,7 +529,7 @@ classdef swips_ok_gui_menu < handle
                 progPatch = patch(progAx, [0 0 0 0], [0 1 1 0], [0.2 0.6 1.0]);
                 countText = uicontrol('Parent', acqTab, 'Style', 'text', ...
                     'Units', 'normalized', ...
-                    'Position', [btnPos(1) btnPos(2)-0.04 btnPos(3) 0.035], ...
+                    'Position', [btnPos(1) btnPos(2)+0.04 btnPos(3) 0.035], ...
                     'String', sprintf('0 / %d', nsamp), ...
                     'FontSize', 10);
                 set(hConnectBtn, 'Visible', 'off','Enable', 'off');
@@ -546,6 +574,19 @@ classdef swips_ok_gui_menu < handle
                     if isvalid(bar_h(k))
                         set(bar_h(k), 'YData', accumData(:, k)');
                     end
+                    % Update stats tab
+                    totalCounts = sum(accumData(:, k));
+                    if isvalid(statCountLabels(k))
+                        set(statCountLabels(k), 'String', num2str(totalCounts));
+                    end
+                    if isvalid(statMeanLabels(k))
+                        if totalCounts > 0
+                            meanPH = sum(accumData(:, k) .* centers') / totalCounts;
+                            set(statMeanLabels(k), 'String', sprintf('%.1f', meanPH));
+                        else
+                            set(statMeanLabels(k), 'String', '0');
+                        end
+                    end
                 end
                 drawnow limitrate;
             end
@@ -555,6 +596,12 @@ classdef swips_ok_gui_menu < handle
                 for k = 1:16
                     if isvalid(bar_h(k))
                         set(bar_h(k), 'YData', zeros(1, nBins));
+                    end
+                    if isvalid(statCountLabels(k))
+                        set(statCountLabels(k), 'String', '0');
+                    end
+                    if isvalid(statMeanLabels(k))
+                        set(statMeanLabels(k), 'String', '0');
                     end
                 end
                 drawnow;
