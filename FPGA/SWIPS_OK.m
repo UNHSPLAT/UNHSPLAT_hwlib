@@ -412,6 +412,7 @@ classdef SWIPS_OK < hwDevice
                 while ~calllib('okFrontPanel', 'okFrontPanel_IsTriggered', obj.okfp, hex2dec('60'), 1)
                     % documentation says is triggered of ppa is bit 1, but other code is showing bit1 is dacs updated
                     pause(dwellTime * 1E-3);
+                    drawnow();
                     calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
                 end
                 
