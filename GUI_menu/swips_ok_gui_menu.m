@@ -424,6 +424,9 @@ classdef swips_ok_gui_menu < handle
             buildTabs();
 
             phListener = [];
+            progListener = [];
+            progAx = [];
+            countText = [];
             drawnow;
 
             %% ---- Nested helpers ----
@@ -486,25 +489,49 @@ classdef swips_ok_gui_menu < handle
                 accumData = zeros(nBins, 16);
                 buildTabs();
 
-                set(hConnectBtn, 'Enable', 'off');
+                % Get connect button position for overlay
+                btnPos = get(hConnectBtn, 'Position');
+
+                % Progress bar axes over the connect button
+                progAx = axes('Parent', acqTab, ...
+                    'Units', 'normalized', ...
+                    'Position', btnPos, ...
+                    'XLim', [0 1], 'YLim', [0 1], ...
+                    'XTick', [], 'YTick', [], 'Box', 'on');
+                progPatch = patch(progAx, [0 0 0 0], [0 1 1 0], [0.2 0.6 1.0]);
+                countText = uicontrol('Parent', acqTab, 'Style', 'text', ...
+                    'Units', 'normalized', ...
+                    'Position', [btnPos(1) btnPos(2)-0.04 btnPos(3) 0.035], ...
+                    'String', sprintf('0 / %d', nsamp), ...
+                    'FontSize', 10);
+                set(hConnectBtn, 'Visible', 'off','Enable', 'off');
+                drawnow;
+
+                % Listener on PHInd to update progress bar on every set
+                progListener = addlistener(obj.parentInst, 'PHInd', 'PostSet', ...
+                    @(~,~) obj.updatePHDProgress(progPatch, countText, nsamp));
 
                 delete(phListener);
                 phListener = addlistener(obj.parentInst, 'PH_reading', 'PostSet', ...
                     @(~,~) onBatchComplete());
 
                 obj.parentInst.connectPH(refresh);
-
-                if isvalid(hConnectBtn)
-                    set(hConnectBtn, 'Enable', 'on');
-                end
             end
 
             function disconnectCB(~,~)
                 obj.parentInst.disconnectPH();
                 delete(phListener);
                 phListener = [];
+                delete(progListener);
+                progListener = [];
+                if ~isempty(progAx) && isvalid(progAx)
+                    delete(progAx);
+                end
+                if ~isempty(countText) && isvalid(countText)
+                    delete(countText);
+                end
                 if isvalid(hConnectBtn)
-                    set(hConnectBtn, 'Enable', 'on');
+                    set(hConnectBtn, 'Visible', 'on', 'Enable', 'on');
                 end
             end
 
@@ -536,6 +563,7 @@ classdef swips_ok_gui_menu < handle
             function onClose(~,~)
                 obj.parentInst.disconnectPH();
                 delete(phListener);
+                delete(progListener);
                 delete(hFig);
             end
 
@@ -544,9 +572,13 @@ classdef swips_ok_gui_menu < handle
         function updatePHDProgress(obj, progPatch, countText, Nsamples)
             % Update progress bar patch and counter label from current PHInd
             if isvalid(progPatch)
-                frac = min(obj.parentInst.PHInd / Nsamples, 1);
-                set(progPatch, 'XData', [0 frac frac 0]);
-                set(countText, 'String', sprintf('%d / %d', obj.parentInst.PHInd, Nsamples));
+                if mod(obj.parentInst.PHInd,10) == 0 || obj.parentInst.PHInd >= Nsamples
+                    drawnow;  % Throttle updates to every 10 samples or on completion
+                    frac = min(obj.parentInst.PHInd / Nsamples, 1);
+                    set(progPatch, 'XData', [0 frac frac 0]);
+                    set(countText, 'String', sprintf('%d / %d', obj.parentInst.PHInd, Nsamples));
+                end
+                
             end
         end
 
