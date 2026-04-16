@@ -449,6 +449,9 @@ classdef SWIPS_OK < hwDevice
                     end
                     calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
                 end
+                if mod(obj.PHInd, 10) == 0
+                    pause(0.1);
+                end
                 drawnow();
                 obj.PHInd = obj.PHInd + 1;
             end
