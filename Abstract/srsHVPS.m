@@ -12,10 +12,9 @@ classdef srsHVPS < powerSupply
     end
 
     methods
-        function obj = srsHVPS(address,funcConfig)
+        function obj = srsHVPS(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            obj@powerSupply(address,funcConfig);
+            obj@powerSupply(address,varargin{:});
 
             %obj.getAllSettings;
         end

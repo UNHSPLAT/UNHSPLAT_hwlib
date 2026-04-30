@@ -14,29 +14,23 @@ classdef webpowerstrip < hwDevice
     end
     
     methods
-        function obj = webpowerstrip(Address,funcConfig,username,password)
+        function obj = webpowerstrip(Address,varargin)
             % Initialize control
-            arguments
-                Address string
-                funcConfig = @(x) x
-                username = ''
-                password = ''
-            end
+            if nargin < 1; Address = ''; end
             % Call parent constructor
-            obj@hwDevice(funcConfig);
+            obj@hwDevice(varargin{:});
             
             obj.Connected = false;
             obj.lastRead = ones(8,1)*nan;
 
             obj.address = Address;
-            obj.username = username;
-            obj.password = password;
 
             function state = reader(x)
                 state = x.checkState();
             end
 
             obj.readFunc = @reader;
+            obj.postConstruct();
         end
         
         function disconnectDevice(obj)

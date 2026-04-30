@@ -7,10 +7,9 @@ classdef frequencyCounter < hVisaHw
     end
     
     methods
-        function obj = frequencyCounter(address)
+        function obj = frequencyCounter(address,varargin)
             %FREQUENCYCOUNTER Construct an instance of this class
-            %   Detailed explanation goes here
-            obj@hVisaHw(address);
+            obj@hVisaHw(address,varargin{:});
         end
     end
 end

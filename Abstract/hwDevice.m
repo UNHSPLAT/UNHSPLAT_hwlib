@@ -9,7 +9,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
 
     properties 
         Tag string = "" % User-configurable label for device
-        funcConfig % Configuration function
+        funcConfig = @(x) x % Configuration function
     end
 
     properties (SetObservable) 
@@ -20,6 +20,7 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
         refreshRate = 4 % Timer refresh rate in seconds
         Timer = timer % Timer object for periodic reads
         read_delay = nan % Time taken for last read operation
+        autoConnect = false % Automatically connect on object creation
     end
 
     properties (Hidden)
@@ -37,13 +38,27 @@ classdef hwDevice < handle & matlab.mixin.Heterogeneous
     end
 
     methods
-        function obj = hwDevice(funcConfig)
+        function obj = hwDevice(varargin)
             %HWDEVICE Construct an instance of this class
-            arguments
-                funcConfig = @(x) x;
+            %   Accepts name-value pairs to set any hwDevice property
+
+            %assign all properties provided
+            if nargin > 0
+                for i = 1:2:numel(varargin)
+                    obj.(varargin{i}) = varargin{i+1};
+                end
             end
-            obj.funcConfig = funcConfig;
+
             obj.initTimer();
+        end
+
+        function postConstruct(obj)
+            %POSTCONSTRUCT Call at the end of each concrete subclass constructor
+            %   Runs post-initialization logic (e.g. autoConnect) after the
+            %   full subclass constructor chain has completed.
+            if obj.autoConnect
+                obj.connectDevice();
+            end
         end
 
         function read(obj,~,~) 

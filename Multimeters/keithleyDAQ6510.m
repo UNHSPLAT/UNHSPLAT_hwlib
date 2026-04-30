@@ -7,16 +7,13 @@ classdef keithleyDAQ6510 < multimeter
     end
     
     methods
-        function obj = keithleyDAQ6510(address,funcConfig)
+        function obj = keithleyDAQ6510(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
-            obj@multimeter(address,funcConfig);
+            if nargin < 1; address = ''; end
+            obj@multimeter(address,varargin{:});
             obj.lastRead = [nan,nan,nan];
             obj.readFunc = @(x) x.performScan(1,3);
+            obj.postConstruct();
         end
         
         function val = measure(obj)

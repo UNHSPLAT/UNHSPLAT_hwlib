@@ -17,11 +17,11 @@ classdef bertan225_05R < bertanHVPS
     end
 
     methods
-        function obj = bertan225_05R(address)
+        function obj = bertan225_05R(address,varargin)
             %BERTAN225_05R Construct an instance of this class
             %   Detailed explanation goes herew\
-            obj@bertanHVPS(address);
-
+            obj@bertanHVPS(address,varargin{:});
+            obj.postConstruct();
         end
     end
 end

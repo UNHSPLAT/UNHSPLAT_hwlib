@@ -17,17 +17,14 @@ classdef hVisaHw < hwDevice
     end
 
     methods
-        function obj = hVisaHw(address, funcConfig)
+        function obj = hVisaHw(address, varargin)
             %HVISAHW Construct an instance of this class
             %   address: Device address (numeric, string, or VISA format)
-            %   funcConfig: Configuration function (optional)
-            arguments
-                address string = '';
-                funcConfig = @(x) x;
-            end
+            %   varargin: Name-value pairs for hwDevice properties
+            if nargin < 1; address = ''; end
             
             % Call superclass constructor
-            obj@hwDevice(funcConfig);
+            obj@hwDevice(varargin{:});
             
             % Format and store the address
             if isnumeric(address)
@@ -55,18 +52,17 @@ classdef hVisaHw < hwDevice
             else
                 error("hVisaHw:invalidAddress", "Invalid address! Must be VISA-readable address format...");
             end
-            
-            obj.connectDevice();
+            % Initialize instrument object
+            if isempty(obj.hVisa)
+                obj.hVisa = visa('ni', obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
+            end
         end
 
         function connectDevice(obj, varargin)
             %CONNECTDEVICE Connect to VISA device
             if ~obj.Connected
                 try
-                    % Initialize instrument object
-                    if isempty(obj.hVisa)
-                        obj.hVisa = visa('ni', obj.Address); %#ok<VISA> Recommended visadev code causes comm issues
-                    end
+                    
                     if ~strcmp(obj.hVisa.Status, 'open')
                         fopen(obj.hVisa);
                     end

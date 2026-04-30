@@ -13,11 +13,11 @@ classdef srsSR620 < frequencyCounter
     end
 
     methods
-        function obj = srsSR620(address)
+        function obj = srsSR620(address,varargin)
             %SRSSR620 Construct an instance of this class
-            %   Detailed explanation goes here
-            obj@frequencyCounter(address);
+            obj@frequencyCounter(address,varargin{:});
             obj.readFunc = @(x) x.measure_async();
+            obj.postConstruct();
         end
 
         function dataOut = measure(obj)

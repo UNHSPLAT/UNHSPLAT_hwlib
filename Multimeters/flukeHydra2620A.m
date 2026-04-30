@@ -7,18 +7,15 @@ classdef flukeHydra2620A < multimeter
     end
     
     methods
-        function obj = flukeHydra2620A(address,funcConfig)
+        function obj = flukeHydra2620A(address,varargin)
             % Construct an instance of this class
-            %   Detailed explanation goes here
-            arguments
-                address string='';%
-                funcConfig = @(x) x;
-            end
+            if nargin < 1; address = ''; end
 
-            obj@multimeter(address,funcConfig);
+            obj@multimeter(address,varargin{:});
             obj.lastRead = [nan,nan,nan,nan];
 
             obj.readFunc =@(self)self.read_scan_async;
+            obj.postConstruct();
         end
 
         function dataOut = read_scan(obj)

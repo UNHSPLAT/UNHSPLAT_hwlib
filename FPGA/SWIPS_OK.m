@@ -23,27 +23,38 @@ classdef SWIPS_OK < hwDevice
         acq_timer = [];
         aliveCount = 0;
         dropCount = 0;
+
         pulseHeightData = [];
         pulseHeightEdges = [];
+        PHInd = 0;
+        PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'PHInd', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
+        PH_connected = false;
+        PH_reading = false;
+        PH_Nsamples  = 1000;   % default number of pulse height samples
+        PH_dwellTime = 1;     % default dwell time between triggers (ms)
+        PH_threshold = 100;    % default lower pulse height threshold (0-65535)
+        
+        logPH = false;          % flag to control whether PH data should be logged to CSV
+        PH_DataDirectory = "";  % data directory for PH logging; accepts string or function handle pointer
+        PH_TestSequence  = 0;   % test sequence for PH logging; accepts scalar or function handle pointer
     end
 
     methods
-        function obj = SWIPS_OK(bitfile, funcConfig)
-            arguments
-                bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit')) ;%
-                funcConfig = @(x) x;
-            end
-            
-            % Call parent constructor
-            obj@hwDevice(funcConfig);
+        function obj = SWIPS_OK(varargin)
 
-            obj.bitfile = bitfile;
+            % Call parent constructor
+            obj@hwDevice(varargin{:});
+
+            if isempty(obj.bitfile)
+                obj.bitfile = char(sprintf('%s',get_script_dir,'\UTIL\','bitfile_git-0x051e3ac7_swips.bit'));
+            end
             obj.lastRead = struct('rawLCnt',zeros(1,16),'rawUCnt',zeros(1,4),'PPACnt',zeros(1,16)); % Override parent with specific structure
-            
-            % Override timer settings for SWIPS_OK
-            obj.refreshRate = 10;
-            obj.readFunc = @(x) obj.askPPA_ok();
-            
+
+            function readFuncWrapper(~,~)
+                obj.askPPA_ok();
+            end
+            obj.readFunc = @readFuncWrapper;
+            obj.postConstruct();
         end
 
         function connectDevice(obj)
@@ -57,8 +68,6 @@ classdef SWIPS_OK < hwDevice
 
                     % Construct FrontPanel
                     obj.okfp = calllib('okFrontPanel','okFrontPanel_Construct');
-                    
-    %                 obj.close();
 
                     % get device number
                     n = calllib('okFrontPanel','okFrontPanel_GetDeviceCount',obj.okfp);
@@ -116,10 +125,6 @@ classdef SWIPS_OK < hwDevice
 
         function connect(obj)
             obj.funcConfig(obj);
-            % obj.Timer = timer('ExecutionMode','fixedRate',...
-            %                     'Period',1,...
-            %                     'TimerFcn',@(~,~) obj.readData());
-            % start(obj.Timer);
         end
 
         function disconnectDevice(obj)
@@ -209,7 +214,7 @@ classdef SWIPS_OK < hwDevice
                     disp('Odd Pulser Disabled');
                 end
                 calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
-            else
+            else 
                 warning('Device not connected. Cannot configure odd pulser.');
             end
         end
@@ -280,99 +285,261 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
-        function getPHD(obj,Nsamples,dwellTime,data_file)
+        function getPHD(obj, Nsamples, dwellTime, PHThreshold, minVal, maxVal, stepSize)
+            % getPHD - Collect a pulse height distribution from the SWIPS FPGA
+            %
+            %   obj.getPHD(Nsamples, dwellTime, PHThreshold)
+            %   obj.getPHD(Nsamples, dwellTime, PHThreshold, minVal, maxVal, stepSize)
+            %
+            %   Inputs:
+            %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
+            %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
+            %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
+            %     minVal       - Histogram lower edge (default: 200)
+            %     maxVal       - Histogram upper edge (default: 15000)
+            %     stepSize     - Histogram bin width (default: 20)
+            %
+            %   Delegates acquisition to getPH, then bins the resulting obj.PH data into a
+            %   histogram with bin edges [minVal:stepSize:maxVal].
+            %   Results are stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
+            %   bin centres and columns 2-17 correspond to Anodes 0-15.
+            %   obj.pulseHeightEdges holds the bin edges used.
+            arguments
+                obj
+                Nsamples
+                dwellTime
+                PHThreshold
+                minVal   = 200
+                maxVal   = 15000
+                stepSize = 20
+            end
 
+            % Collect raw samples into obj.PH
+            obj.getPH(Nsamples, dwellTime, PHThreshold);
 
-            persistent buf pv;
+            [obj.pulseHeightData, obj.pulseHeightEdges] = obj.binPHD(minVal, maxVal, stepSize);
+        end
+
+        function [histData, edges] = binPHD(obj, minVal, maxVal, stepSize)
+            % binPHD - Bin existing obj.PH pulse height data into a histogram
+            %   obj.binPHD(minVal, maxVal, stepSize)
+            %
+            %   Inputs:
+            %     minVal       - Histogram lower edge (default: 200)
+            %     maxVal       - Histogram upper edge (default: 15000)
+            %     stepSize     - Histogram bin width (default: 20)
+            %
+            %   Bins the raw pulse height data in obj.PH into a histogram with bin edges [minVal:stepSize:maxVal].
+            %   Results are stored in obj.pulseHeightData (Nbins x 17) where column 1 contains
+            %   bin centres and columns 2-17 correspond to Anodes 0-15.
+            arguments
+                obj
+                minVal   = 200
+                maxVal   = 15000
+                stepSize = 20
+            end
+
+            edges    = minVal:stepSize:maxVal;
+            numBins  = (maxVal - minVal) / stepSize;
             
+            histData = zeros(numBins, 17);
+            histData(:, 1) = edges(1:numBins) + stepSize/2;
+
+            if isempty(obj.PH.pulseheight)
+                warning('No pulse height data to bin. Please run getPH first.');
+                return;
+            end
+
+            pulseheight = double(obj.PH.pulseheight);
+            anode_pos   = double(obj.PH.anode_pos);
+
+            for i = 1:16
+                vals = pulseheight(anode_pos == i-1);
+                if ~isempty(vals)
+                    histData(:, i+1) = histcounts(vals, edges);
+                end
+            end
+
+        end
+
+        function getPH(obj, Nsamples, dwellTime, PHThreshold)
+            % getPH - Collect raw pulse height samples from the SWIPS FPGA
+            %
+            %   obj.getPH()                              % uses obj.PH_Nsamples, obj.PH_dwellTime, obj.PH_threshold
+            %   obj.getPH(Nsamples, dwellTime, PHThreshold)
+            %
+            %   Inputs (all optional, fall back to corresponding properties):
+            %     Nsamples     - Total number of pulse height samples to collect (integer, 1 to 10,000,000)
+            %     dwellTime    - Time between single-pulse-height triggers, in milliseconds (integer, 0-100)
+            %     PHThreshold  - Lower pulse height threshold written to FPGA WireIn 0x09 (integer, 0-65535)
+            %
+            %   Unlike getPHD, this function does not histogram the data. Instead, the decoded
+            %   arrays from every readout batch are concatenated into obj.PH, a struct with fields:
+            %     pulseheight  - [1 x N uint32] raw pulse height values (bits 13:0)
+            %     anode_pos    - [1 x N uint32] anode position (0-15, bits 19:16)
+            %     PHInd        - [1 x N uint32] sample index (obj.PHInd) at time of each batch read
+            %     timestamp    - [1 x N datetime] read timestamp, one entry per valid sample
+            %     aliveCount   - [1 x N uint32] FPGA aliveness counter value at each batch read
+            arguments
+                obj
+                Nsamples    = obj.PH_Nsamples
+                dwellTime   = obj.PH_dwellTime
+                PHThreshold = obj.PH_threshold
+            end
+
+            obj.PH_reading = true; % Set flag to indicate we're reading PH data
+            persistent buf pv;
+
             % Allocate a buffer
             bytes = 4*1024;     % 1024 32-bit samples
             buf(bytes,1) = uint8(0);
-            pv = libpointer('uint8Ptr',buf); 
+            pv = libpointer('uint8Ptr', buf);
 
-            %histogram settings
-            min = 200;
-            max = 15000;
-            stepSize = 20;
-            edges = min:stepSize:max;
-            numBins = (max-min)/stepSize;
-            
-            %outputfile settings
-            histData4file = zeros(numBins,17);
-            histData4file(:,1) = edges(1:numBins)+stepSize/2;
-            header = {'Bin Center','Anode 0','Anode 1', 'Anode 2', 'Anode 3', 'Anode 4', 'Anode 5', 'Anode 6', 'Anode 7', 'Anode 8', 'Anode 9', 'Anode 10', 'Anode 11', 'Anode 12', 'Anode 13', 'Anode 14', 'Anode 15'};
-                  
-            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(100), hex2dec('ffff')); % Set PH Threshold
+            % Initialise output struct
+            obj.PH = struct('pulseheight', uint32([]), 'anode_pos', uint32([]), 'PHInd', uint32([]), 'timestamp', datetime.empty(1,0), 'aliveCount', uint32([]));
+
+            calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('09'), uint32(PHThreshold), hex2dec('ffff')); % Set PH Threshold
+            calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
             calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
 
-            ind = 1;
-            while ind <= Nsamples
-                if mod(ind,1024) == 0 || ind == Nsamples
-                       
-                    calllib('okFrontPanel','okFrontPanel_ReadFromBlockPipeOut',obj.okfp,hex2dec('A0'),32,bytes,pv);
-                    data = get(pv,'value');
-                    
-                    % Fix Endian
-                    data = reshape(data,4,length(data)/4);
-                    data32 = uint32(zeros(1,bytes/4));
-                    for ii=1:length(data)
-                        data32(ii) = typecast(data(:,ii),'uint32');
-                    end
-        
-                    % the format of the PH word is as follows:
-                    %   Bit       31: data valid
-                    %   Bits 30 - 25: unused (0)
-                    %   Bit       24: anode_active
-                    %   Bits 23 - 20: unused (0)
-                    %   Bits 19 - 16: anode position (number)
-                    %   Bits 15 - 14: unused (0)
-                    %   Bits 13 -  0: pulseheight
-                    
-                    % we only want to report out the valid data. drop all the rest
-                    idx = bitand(data32, 2^31) ~= 0;
-                    pulseheight = bitand(data32(idx), 2^14-1);
-                    anode_pos = bitshift(bitand(data32(idx),2^20-1), -16);
-                    anode_active = bitshift(bitand(data32(idx),2^24), -24);
-        
-                    % Plot
-                    histArray = zeros(numBins,16);
-                    
-                    histVal = zeros(length(find(anode_pos == mode(anode_pos))),16);
-                    
-                    for i=1:16
-                        indices = find(anode_pos == i-1);
-                        if(~isempty(indices))
-                            histVal(1:length(pulseheight(indices)),i) = pulseheight(indices);
-                            % histogram(selectedValues, numBins); hold on
+            obj.PHInd = 1;
+            while obj.PHInd <= Nsamples
+                % Collect single pulse height
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height
+                pause(dwellTime * 1E-3);
+
+                % Check if pulse height is triggered
+%                 calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
+%                 n = 1;
+%                 while ~calllib('okFrontPanel', 'okFrontPanel_IsTriggered', obj.okfp, hex2dec('60'), 2) && n<10
+%                     % documentation says is triggered of ppa is bit 1, but other code is showing bit1 is dacs updated
+%                     pause(dwellTime * 1E-3);
+%                     drawnow();
+%                     calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
+%                     n=n+1;
+%                 end
+                if mod(obj.PHInd, 1024) == 0 || obj.PHInd == Nsamples
+                    try
+                        calllib('okFrontPanel', 'okFrontPanel_ReadFromBlockPipeOut', obj.okfp, hex2dec('A0'), 32, bytes, pv);
+                        rawData = get(pv, 'value');
+                        % Fix Endian
+                        rawData = reshape(rawData, 4, length(rawData)/4);
+                        data32 = uint32(zeros(1, bytes/4));
+                        for ii = 1:length(data32)
+                            data32(ii) = typecast(rawData(:, ii), 'uint32');
                         end
-                    end
-                    
-                    for i=1:16
-                       data = histVal(:,i);
-                       counts = histcounts(data(data~=0),edges); 
-                       histArray(:,i) = counts;
-                    end
 
-                    %accumulate counts in the histogram array for the output file
-                    histData4file(:,2:17) = histData4file(:,2:17) + histArray;
+                        % Decode valid words only
+                        idx = bitand(data32, 2^31) ~= 0;
+                        batch_ph  = bitand(data32(idx), 2^14 - 1);
+                        batch_pos = bitshift(bitand(data32(idx), 2^20 - 1), -16);
 
+                        % Concatenate batch into PH struct
+                        batchTime  = repmat(datetime('now'), 1, numel(batch_ph));
+                        batchAlive = repmat(uint32(obj.checkAlivenessCounter()), 1, numel(batch_ph));
+                        batchInd   = repmat(uint32(obj.PHInd), 1, numel(batch_ph));
+                        obj.PH.pulseheight  = [obj.PH.pulseheight,  batch_ph];
+                        obj.PH.anode_pos    = [obj.PH.anode_pos,    batch_pos];
+                        obj.PH.PHInd        = [obj.PH.PHInd,        batchInd];
+                        obj.PH.timestamp    = [obj.PH.timestamp,    batchTime];
+                        obj.PH.aliveCount   = [obj.PH.aliveCount,   batchAlive];
+                    catch ME
+                        warning(ME.identifier, 'Error reading pulse height data: %s', ME.message);
+                        obj.PH_reading = false;
+                    end
                     calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('42'), 0);  % Clear Buffer
                 end
+                if mod(obj.PHInd, 10) == 0
+                    pause(0.1);
+                end
+                drawnow();
+                obj.PHInd = obj.PHInd + 1;
+            end
+            obj.PH_reading = false; % Clear flag when done
+            obj.PHInd=1;
+        end
+
+         function connectPH(obj, refreshRate)
+            % connectPH - Continuously collect pulse height data until disconnected
+            %
+            %   obj.connectPH()               % uses obj.refreshRate between acquisitions
+            %   obj.connectPH(refreshRate)    % uses the specified refresh rate (seconds)
+            %
+            %   Sets PH_connected = true and repeatedly calls getPH() in a loop.
+            %   After each acquisition, waits refreshRate seconds before the next.
+            %   If logPH is true, updatePHLog() is called after each acquisition.
+            %   Call disconnectPH() to exit the loop.
+            %
+            %   Inputs:
+            %     refreshRate  - Time between acquisitions in seconds (default: obj.refreshRate)
+            if nargin < 2 || isempty(refreshRate)
+                refreshRate = obj.refreshRate;
+            end
+            if ~obj.PH_connected
+                obj.PH_connected = true;
+                while obj.PH_connected
+                    if ~obj.PH_reading
+                        obj.getPH();
+                        if obj.logPH
+                            obj.updatePHLog();
+                        end
+                    else
+                        warning('Pulse Height Collecting');
+                    end
+                    PH_time = tic;
+                    while toc(PH_time) < refreshRate
+                        pause(.1);
+                        drawnow;
+                    end
+                end
+            end
+        end
+        
+        function disconnectPH(obj)
+            obj.PH_connected = false;
+            obj.PHInd = obj.PH_Nsamples;
+        end
+
+        function updatePHLog(obj, fname)
+            % updatePHLog - Save current PH struct to CSV, similar to labGUI updateLog
+            %
+            %   obj.updatePHLog()        % builds filename from PH_DataDirectory and PH_TestSequence
+            %   obj.updatePHLog(fname)   % writes to the specified CSV file
+            %
+            %   PH_DataDirectory and PH_TestSequence may be set to function
+            %   handles (e.g. @() guiObj.DataDir) so that the values are
+            %   resolved at call-time rather than at assignment-time.
+
+            if isempty(obj.PH.pulseheight)
+                warning('SWIPS_OK:updatePHLog', 'No pulse height data to log.');
+                return;
+            end
+
+            % Resolve DataDirectory (support function handle pointer)
+            if isa(obj.PH_DataDirectory, 'function_handle')
+                dataDir = obj.PH_DataDirectory();
+            else
+                dataDir = obj.PH_DataDirectory;
+            end
+
+            % Resolve TestSequence (support function handle pointer)
+            if isa(obj.PH_TestSequence, 'function_handle')
+                testSeq = obj.PH_TestSequence();
+            else
+                testSeq = obj.PH_TestSequence;
+            end
+
+            if nargin < 2
+                fname = fullfile(char(dataDir), ['ph_readings_', num2str(testSeq), '.csv']);
+            end
                 
-                %collect signle pulse height
-                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('0x40'), 2);  % Get Single Pulse Height 
-                pause(dwellTime*1E-3)
-               
-                ind = ind + 1;
-            end     
-            
-            %Write to file
-            % t = array2table(histData4file,'VariableNames',header);
-            % obj.App.DataDir+'\'+obj.App.TestSequence+'_PHD.csv',
-            % writetable(t,data_file,'WriteMode','overwrite');
-            obj.pulseHeightData = histData4file;
-            obj.pulseHeightEdges = edges;
-             
+            phTable = struct2table(structfun(@(x)x',obj.PH,'UniformOutput',false));
+
+            if isfile(fname)
+                writetable(phTable, fname, 'WriteMode', 'append', 'WriteVariableNames', false);
+            else
+                writetable(phTable, fname);
+            end
         end
 
         function askPPA_ok(obj)
@@ -490,27 +657,6 @@ classdef SWIPS_OK < hwDevice
             obj.lastRead.rawLCnt = obj.lastRead.rawLCnt*nan;
             obj.lastRead.rawUCnt = obj.lastRead.rawUCnt*nan;
             obj.lastRead.PPACnt = obj.lastRead.PPACnt*nan;
-        end
-
-        function restartTimer(obj)
-            %RESTARTTIMER Restarts timer if error
-
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
-
-            % Restart timer
-            if obj.Connected
-                start(obj.Timer);
-            end
-        end
-
-        function stopTimer(obj)
-            % Stop timer if still running
-            if strcmp(obj.Timer.Running,'on')
-                stop(obj.Timer);
-            end
         end
 
         function connected = isDeviceConnected(obj)
