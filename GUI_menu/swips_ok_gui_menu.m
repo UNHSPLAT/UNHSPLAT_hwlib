@@ -33,6 +33,8 @@ classdef swips_ok_gui_menu < handle
                 'Separator', 'on');
             uimenu(hMenu, 'Text', 'Set DAQ Thresholds',...
                 'MenuSelectedFcn', @(~,~) obj.setDaqThresholdsCallback());
+            uimenu(hMenu, 'Text', 'Set Upper Thresholds',...
+                'MenuSelectedFcn', @(~,~) obj.setUpperThresholdsCallback());
             
             % Add pulser control
             uimenu(hMenu, 'Text', 'Pulser Control',...
@@ -751,6 +753,71 @@ classdef swips_ok_gui_menu < handle
             end
         end
         
+        function setUpperThresholdsCallback(obj)
+            % Create figure for upper threshold inputs
+            fig = figure('Name', 'Set Upper Thresholds', ...
+                'NumberTitle', 'off', ...
+                'Position', [300 300 400 220], ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none');
+            
+            % Get current values or use defaults
+            current = obj.parentInst.upper_thresh_table;
+            
+            % Title
+            uicontrol('Style', 'text', ...
+                'Position', [10 180 380 30], ...
+                'String', 'Enter Upper Thresholds (0-255):', ...
+                'FontSize', 12);
+            
+            % Labels and edit boxes for U0, U7, U8, U15
+            anodes = [0, 7, 8, 15];
+            fields = {'u0', 'u7', 'u8', 'u15'};
+            edit_boxes = zeros(1, 4);
+            for i = 1:4
+                col = i - 1;
+                uicontrol('Style', 'text', ...
+                    'Position', [20+col*95 145 80 20], ...
+                    'String', sprintf('Anode %d:', anodes(i)));
+                edit_boxes(i) = uicontrol('Style', 'edit', ...
+                    'Position', [20+col*95 115 80 30], ...
+                    'String', num2str(current.(fields{i})), ...
+                    'FontSize', 10);
+            end
+            
+            % Buttons
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [80 50 100 40], ...
+                'String', 'Apply', ...
+                'Callback', @applyCallback);
+            
+            uicontrol('Style', 'pushbutton', ...
+                'Position', [220 50 100 40], ...
+                'String', 'Cancel', ...
+                'Callback', @(~,~) delete(fig));
+            
+            function applyCallback(~, ~)
+                try
+                    vals = zeros(1, 4);
+                    for j = 1:4
+                        val = str2double(get(edit_boxes(j), 'String'));
+                        if isnan(val) || val < 0 || val > 255 || mod(val, 1) ~= 0
+                            errordlg(sprintf('Invalid value for Anode %d. Must be integer between 0-255.', anodes(j)), 'Error');
+                            return;
+                        end
+                        vals(j) = val;
+                    end
+                    
+                    obj.parentInst.setUpperThresholds(vals(1), vals(2), vals(3), vals(4));
+                    
+                    delete(fig);
+                    msgbox('Upper thresholds updated successfully', 'Success');
+                catch ME
+                    errordlg(['Error setting upper thresholds: ' ME.message], 'Error');
+                end
+            end
+        end
+
         function pulserControlCallback(obj)
             % Create figure for pulser control
             fig = figure('Name', 'Pulser Control', ...
