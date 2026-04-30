@@ -18,6 +18,7 @@ classdef SWIPS_OK < hwDevice
         dac_table = ones(1,16)*60; % default DAC table
                                    % default DAC table @2000 V [68,60,60,60, 60,60,60,60, 60,60,60,61, 60,60,60,76]
                                    % default DAC table @2100 V [110,80,60,60, 75,60,72,60, 60,60,61,74, 86,84,87,115]
+        upper_thresh_table = struct('u0', 0, 'u7', 0, 'u8', 0, 'u15', 0); % upper threshold DAC values for Anodes 0, 7, 8, 15
         okfp % opal kelly object
         acq_time = 0; % '0' for 1 sec acquisition time; '1' for 10 sec    
         acq_timer = [];
@@ -173,6 +174,44 @@ classdef SWIPS_OK < hwDevice
             end
         end
 
+        function setUpperThresholds(obj, thresh_u0, thresh_u7, thresh_u8, thresh_u15)
+            % setUpperThresholds - Set the upper threshold values for Anodes 0, 7, 8, 15
+            %   Maps to THRESH_UPPER WireIn address x"01":
+            %     Thres_u0  -> bits  7:0
+            %     Thresh_u7 -> bits 15:8
+            %     Thresh_u8 -> bits 23:16
+            %     Thresh_u15-> bits 31:24
+            %
+            %   Inputs:
+            %     thresh_u0  - Upper threshold for Anode 0  (0-255)
+            %     thresh_u7  - Upper threshold for Anode 7  (0-255)
+            %     thresh_u8  - Upper threshold for Anode 8  (0-255)
+            %     thresh_u15 - Upper threshold for Anode 15 (0-255)
+
+            if obj.Connected
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('01'), uint32(thresh_u0  * 2^0),  hex2dec('ff'));        % Upper 0
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('01'), uint32(thresh_u7  * 2^8),  hex2dec('ff00'));      % Upper 7
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('01'), uint32(thresh_u8  * 2^16), hex2dec('ff0000'));    % Upper 8
+                calllib('okFrontPanel', 'okFrontPanel_SetWireInValue', obj.okfp, hex2dec('01'), uint32(thresh_u15 * 2^24), hex2dec('ff000000')); % Upper 15
+                calllib('okFrontPanel', 'okFrontPanel_UpdateWireIns', obj.okfp);
+
+                % Trigger DAC update (same trigger used by configurePPA_ok)
+                calllib('okFrontPanel', 'okFrontPanel_ActivateTriggerIn', obj.okfp, hex2dec('40'), 1);
+
+                % Verify DACs updated
+                pause(0.5);
+                calllib('okFrontPanel', 'okFrontPanel_UpdateTriggerOuts', obj.okfp);
+                if calllib('okFrontPanel', 'okFrontPanel_IsTriggered', obj.okfp, hex2dec('60'), 1)
+                    obj.upper_thresh_table = struct('u0', thresh_u0, 'u7', thresh_u7, 'u8', thresh_u8, 'u15', thresh_u15);
+                    disp(['Upper thresholds set: U0=' num2str(thresh_u0) ' U7=' num2str(thresh_u7) ' U8=' num2str(thresh_u8) ' U15=' num2str(thresh_u15)]);
+                else
+                    disp('Upper threshold DACs did not update :(');
+                end
+            else
+                warning('Device not connected. Cannot set upper thresholds.');
+            end
+        end
+        
         function evenPulserEnable(obj, enable)
             % evenPulserEnable - Enable/disable the even pulser
             %   enable: logical or 0/1 where 0 = Disable, 1 = Enable
@@ -728,50 +767,6 @@ classdef SWIPS_OK < hwDevice
             end
         end
     end
-end
-
-function [rawCntFinal, ppaCntFinal] = findThreshold_ok(bitfile,acq_time,dac_table)
-
-%% Parameter configuration
-% bitfile = 'bitfile_git-0x0f27429b_swips.bit';   % fpga bit file
-
-% acq_time = 1;       % '1' for 10 sec acquisition time; '0' for 1 sec
-%dac_table = [99 82 78 80 80 70 68 71 95 99 103 103 98 90 80 90];
-% dac_table = ones(1,16);
-
-%% Output
-filename = 'TRL6_Threshold_DarkCount.xlsx';     % output file name
-rawCntFinal = 0:15;
-ppaCntFinal = 0:15;
-
-
-
-% Create XLS sheets
-writematrix(0:15, filename, 'Sheet', 'rawCnt');
-writematrix(0:15, filename, 'Sheet', 'ppaCnt');
-
-% Set DAC values
-
-
-% TODO: Add actual processing
-for i = 60:70
-    configurePPA_ok(okfp, i*dac_table, acq_time);         % DAC table ... all 60s; 10 sec acquisition time
-    
-    [rawCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time);
-    
-    rawCntFinal = [rawCntFinal; rawCnt];
-    ppaCntFinal = [ppaCntFinal; ppaCnt];
-
-    writematrix(rawCnt,filename, 'Sheet', 'rawCnt', 'WriteMode','append');
-    writematrix(ppaCnt,filename, 'Sheet', 'ppaCnt', 'WriteMode','append');
-
-end
-
-%% Cleanup and close
-
-% It's polite to clean up after yourself
-calllib('okFrontPanel', 'okFrontPanel_Close',okfp);
-calllib('okFrontPanel','okFrontPanel_Destruct',okfp);
 end
 
 function [rawLCnt, rawUCnt, ppaCnt] = acquirePPA_ok(okfp,acq_time)
